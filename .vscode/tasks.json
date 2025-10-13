@@ -3,21 +3,28 @@
   "tasks": [
     {
       "label": "compile_one",
+      "type": "shell",
       "command": "./compile.bat",
-      "type": "shell"
+      "options": {
+        "cwd": "D:\\java\\Q-routing\\the-one-ql"
+      },
+      "problemMatcher": []
     },
     {
       "label": "run_one",
-      "command": "./one.bat -b 1 crowd_settings.txt",
-      "type": "shell"
+      "type": "shell",
+      //"command": "./one.bat -b 1 PeopleRank.txt", // without GUI
+      // "command": "./one.bat 1 PeopleRank.txt", // with GUI  
+      "command": "./one.bat 1 default_settings.txt",
+      "options": {
+        "cwd": "D:\\java\\Q-routing\\the-one-ql"
+      },
+      "problemMatcher": []
     },
     {
       "label": "build_and_run",
       "dependsOrder": "sequence",
-      "dependsOn": [
-        "compile_one",
-        "run_one",
-      ]
+      "dependsOn": ["compile_one", "run_one"]
     }
   ]
 }

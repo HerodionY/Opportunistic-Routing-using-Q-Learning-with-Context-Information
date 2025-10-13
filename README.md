@@ -1,5 +1,3 @@
-﻿# Opportunistic-Routing-using-Q-Learning-with-Context-Information
-
 # Opportunistic Routing using Q-Learning & Context Information (ORQLCI)
 
 [cite_start]This repository contains the official implementation of the **ORQLCI** algorithm, an intelligent routing scheme for **Opportunistic Networks**, as described in our research paper[cite: 1].
@@ -31,3 +29,4 @@ The primary objective of ORQLCI is to enhance overall network performance by:
 ## 📊 Results
 
 [cite_start]Simulations show that ORQLCI consistently outperforms other algorithms such as **Epidemic**, **Prophet**, and **EC-CW** across various scenarios, particularly in terms of delivery ratio, overhead, and latency[cite: 148, 259].
+

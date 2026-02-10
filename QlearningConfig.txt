@@ -1,0 +1,60 @@
+#
+# ORQLCI Configuration (NO MAP VERSION)
+#
+
+## Scenario
+Scenario.name = ORQLCI-NoMap
+Scenario.simulateConnections = true
+Scenario.updateInterval = 0.1
+Scenario.endTime = 43200
+
+## Interface
+btInterface.type = SimpleBroadcastInterface
+btInterface.transmitSpeed = 250k
+btInterface.transmitRange = 10
+
+## Host Groups
+Scenario.nrofHostGroups = 3
+
+Group.movementModel = RandomWaypoint
+Group.router = CCRouting
+Group.bufferSize = 5M
+Group.waitTime = 0,120
+Group.speed = 0.5,1.5
+Group.nrofInterfaces = 1
+Group.interface1 = btInterface
+Group.msgTtl = 300
+Group.nrofHosts = 40
+
+Group1.groupID = p
+Group2.groupID = c
+Group3.groupID = w
+
+## Q-Learning (ORQLCI)
+CCRouting.updateInterval = 900
+CCRouting.totalState = 120
+CCRouting.totalAction = 120
+
+## Message events
+Events.nrof = 1
+Events1.class = MessageEventGenerator
+Events1.interval = 25,35
+Events1.size = 500k,1M
+Events1.hosts = 0,119
+Events1.prefix = M
+
+## World
+MovementModel.worldSize = 4500,3400
+MovementModel.warmup = 1000
+MovementModel.rngSeed = 1
+
+## Reports
+Report.nrofReports = 2
+Report.warmup = 0
+Report.reportDir = reports/
+Report.report1 = MessageStatsReport
+Report.report2 = ContactTimesReport
+
+## Optimization
+Optimization.cellSizeMult = 5
+Optimization.randomizeUpdateOrder = true

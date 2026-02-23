@@ -45,14 +45,6 @@ public class CCRouting extends QLearningRouter {
 	private double prophetMinDelta = 0.0;
 	private boolean bufferAwareEnabled = false;
 	private double bufferFactorMin = 0.0;
-	private boolean fusionEnabled = false;
-	private double fusionWeightRL = 0.0;
-	private double fusionWeightProphet = 0.0;
-	private double fusionWeightBuffer = 0.0;
-
-	// Learning parameters
-	private double discountGamma = 0.6;
-	private double learningCoeff = 0.8;
 
 	/** 
 	 * Integer sebagai address node, 
@@ -96,10 +88,6 @@ public class CCRouting extends QLearningRouter {
 	private static final String FUSION_WEIGHT_PROPHET = "fusionWeightProphet";
 	private static final String FUSION_WEIGHT_BUFFER = "fusionWeightBuffer";
 
-	// Learning settings
-	private static final String DISCOUNT_GAMMA_S = "discountGamma";
-	private static final String LEARNING_COEFF_S = "learningCoeff";
-
 	/**
 	 * Constructor
 	 * 
@@ -127,13 +115,6 @@ public class CCRouting extends QLearningRouter {
 		}
 		if (ccSettings.contains(BUFFER_FACTOR_MIN)) {
 			bufferFactorMin = ccSettings.getDouble(BUFFER_FACTOR_MIN);
-		}
-
-		if (ccSettings.contains(DISCOUNT_GAMMA_S)) {
-			discountGamma = ccSettings.getDouble(DISCOUNT_GAMMA_S);
-		}
-		if (ccSettings.contains(LEARNING_COEFF_S)) {
-			learningCoeff = ccSettings.getDouble(LEARNING_COEFF_S);
 		}
 
 		if (ccSettings.contains(FUSION_ENABLED)) {
@@ -198,8 +179,6 @@ public class CCRouting extends QLearningRouter {
 		fusionWeightRL = r.fusionWeightRL;
 		fusionWeightProphet = r.fusionWeightProphet;
 		fusionWeightBuffer = r.fusionWeightBuffer;
-		discountGamma = r.discountGamma;
-		learningCoeff = r.learningCoeff;
 		secondsInTimeUnit = r.secondsInTimeUnit;
 		beta = r.beta;
 		pInit = r.pInit;
@@ -457,9 +436,8 @@ public class CCRouting extends QLearningRouter {
 				
 					// Q-Learning
 					int action = this.ql.GetAction(entry.getKey(), waitForReward, true);
-					this.ql.setLearningRate(totalVisit, learningCoeff);
-					double bf = bufferAwareEnabled ? getBufferFactor(other) : 1.0;
-					this.ql.setDiscountFactorDynamic(discountGamma, bf);
+					this.ql.setLearningRate(totalVisit);
+					this.ql.setDiscountFactor(totalRewardForDiscFac );
 					this.ql.UpdateState(entry.getKey(), action, reward, newState, this, other);	
 
 					othRouter.dataReceived = 0;
@@ -640,7 +618,6 @@ public class CCRouting extends QLearningRouter {
 		this.msgTransferred = value;
 	}
 
-	@Override
 	public Map<Integer, Tuple<DTNHost, Boolean>> getMapWaitForReward() {
 		return this.waitForReward;
 	}

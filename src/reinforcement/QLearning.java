@@ -135,8 +135,17 @@ public class QLearning{
      * 
      * @param learningRate
      */
-    public void setLearningRate(double visitCount) {
-        this.learningRate = 1 / visitCount;
+    public void setLearningRate(double visitCount, double coeff) {
+        if (visitCount <= 0) {
+            visitCount = 1;
+        }
+        double lr = coeff / visitCount;
+        if (lr > 1.0) {
+            lr = 1.0;
+        } else if (lr < 0.0) {
+            lr = 0.0;
+        }
+        this.learningRate = lr;
     }
 
     /**
@@ -157,10 +166,24 @@ public class QLearning{
      * 
      * @param discountFactor
      */
-    public void setDiscountFactor(double totalReward) {
+   public void setDiscountFactor(double totalReward) {
         double pow = gamma2 / totalReward;
 
         this.discountFactor = Math.pow(gamma1, pow);
+    }
+
+    /**
+     * Dynamic discount factor using contextual info.
+     * gamma_d(s,x) = gamma * BF_x * EF_x
+     */
+    public void setDiscountFactorDynamic(double baseGamma, double bufferFactor) {
+        double g = baseGamma * bufferFactor;
+        if (g > 1.0) {
+            g = 1.0;
+        } else if (g < 0.0) {
+            g = 0.0;
+        }
+        this.discountFactor = g;
     }
     
     /**

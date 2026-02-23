@@ -84,6 +84,7 @@ CCRouting.fusionWeightProphet = 0.1
 CCRouting.fusionWeightBuffer = 0.1
 CCRouting.bufferAwareEnabled = true
 
+
 ## Message creation parameters
 Events.nrof = 1
 Events1.class = MessageEventGenerator

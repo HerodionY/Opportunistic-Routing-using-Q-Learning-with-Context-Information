@@ -17,10 +17,11 @@ import core.SimClock;
 import reinforcement.BoltzmannExploration;
 import reinforcement.IExplorationPolicy;
 import routing.community.Duration;
+import core.Tuple;
 import core.SimError;
 import core.Application;
 
-public class QLearningRouter extends ActiveRouter {
+public abstract class QLearningRouter extends ActiveRouter {
 	public static final String MESSAGE_TOPICS_S = "topic";
 
 	// amount of possible states
@@ -212,9 +213,7 @@ public class QLearningRouter extends ActiveRouter {
 	}
 
 	@Override
-	public QLearningRouter replicate() {
-		return new QLearningRouter(this);
-	}
+	public abstract QLearningRouter replicate();
 
 	@Override
 	public void changedConnection(Connection con) {
@@ -341,4 +340,6 @@ public class QLearningRouter extends ActiveRouter {
 
 		return valInterest;
 	}
+
+	public abstract Map<Integer, Tuple<DTNHost, Boolean>> getMapWaitForReward();
 }

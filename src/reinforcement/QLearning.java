@@ -29,7 +29,7 @@ import java.util.Random;
 
 import core.DTNHost;
 import core.Tuple;
-import routing.CCRouting;
+import routing.QLearningRouter;
 
 /**
  * The class provides implementation of Q-Learning algorithm, known as
@@ -179,7 +179,7 @@ public class QLearning{
      * @param reward Reward value, received by taking specified action from previous state.
      * @param nextState Next state.
      */
-    public void UpdateState( int previousState, int action, double reward, int nextState, CCRouting router, DTNHost pendingHost ){
+    public void UpdateState( int previousState, int action, double reward, int nextState, QLearningRouter router, DTNHost pendingHost ){
         // next state's action estimations
         double[] nextActionEstimations = qvalues[nextState];
                     // find maximum expected summary reward from the next state

@@ -7,7 +7,8 @@ Scenario.name = ORQLCI-DTN
 Scenario.simulateConnections = true
 Scenario.updateInterval = 0.1
 # 43200s == 12h
-Scenario.endTime = 43200
+Scenario.endTime = 1000
+Events1.interval = 5,10
 
 ## Interface-specific settings
 # "Bluetooth" interface for all nodes
@@ -81,9 +82,9 @@ ORQLCIPerformanceRouter.totalState = 126
 ORQLCIPerformanceRouter.totalAction = 126
 # Periodic Message Drop settings
 # dropInterval: interval in seconds between drops
-ORQLCIPerformanceRouter.dropInterval = 3600
+ORQLCIPerformanceRouter.dropInterval = 100
 # dropAmount: number of oldest messages to drop at each interval
-ORQLCIPerformanceRouter.dropAmount = 2
+ORQLCIPerformanceRouter.dropAmount = 1
 
 ## Message creation parameters
 Events.nrof = 1

@@ -33,6 +33,23 @@ public class CCRouting extends QLearningRouter {
 	private Map<DTNHost, Integer> visitCount;
 	private int newState = 0;
 
+	// PRoPHET delivery predictability state
+	private int secondsInTimeUnit;
+	private double beta;
+	private double lastAgeUpdate = 0.0;
+	private Map<DTNHost, Double> preds;
+	private double pInit = P_INIT;
+	private double gamma = GAMMA;
+	private boolean prophetEnabled = true;
+	private boolean prophetAllowNoInfo = true;
+	private double prophetMinDelta = 0.0;
+	private boolean bufferAwareEnabled = false;
+	private double bufferFactorMin = 0.0;
+	private boolean fusionEnabled = false;
+	private double fusionWeightRL = 0.0;
+	private double fusionWeightProphet = 0.0;
+	private double fusionWeightBuffer = 0.0;
+
 	/** 
 	 * Integer sebagai address node, 
 	 * jika status masih <CODE>pending</CODE> 
@@ -56,6 +73,25 @@ public class CCRouting extends QLearningRouter {
 	private static final String TOTAL_STATE = "totalState";
 	private static final String TOTAL_ACTION = "totalAction";
 
+	// PRoPHET settings
+	private static final String PROPHET_NS = "ProphetRouter";
+	private static final String SECONDS_IN_UNIT_S = "secondsInTimeUnit";
+	private static final String BETA_S = "beta";
+	private static final String P_INIT_S = "pInit";
+	private static final String GAMMA_S = "gamma";
+	private static final double P_INIT = 0.75;
+	private static final double DEFAULT_BETA = 0.25;
+	private static final double GAMMA = 0.98;
+	private static final String PROPHET_ENABLED = "prophetEnabled";
+	private static final String PROPHET_ALLOW_NOINFO = "prophetAllowNoInfo";
+	private static final String PROPHET_MIN_DELTA = "prophetMinDelta";
+	private static final String BUFFER_AWARE_ENABLED = "bufferAwareEnabled";
+	private static final String BUFFER_FACTOR_MIN = "bufferFactorMin";
+	private static final String FUSION_ENABLED = "fusionEnabled";
+	private static final String FUSION_WEIGHT_RL = "fusionWeightRL";
+	private static final String FUSION_WEIGHT_PROPHET = "fusionWeightProphet";
+	private static final String FUSION_WEIGHT_BUFFER = "fusionWeightBuffer";
+
 	/**
 	 * Constructor
 	 * 
@@ -67,6 +103,59 @@ public class CCRouting extends QLearningRouter {
 		updateInterval = ccSettings.getInt(UPDATE_INTERVAL);
 		totalState = ccSettings.getInt(TOTAL_STATE);
 		totalAction = ccSettings.getInt(TOTAL_ACTION);
+
+		if (ccSettings.contains(PROPHET_ENABLED)) {
+			prophetEnabled = ccSettings.getBoolean(PROPHET_ENABLED);
+		}
+		if (ccSettings.contains(PROPHET_ALLOW_NOINFO)) {
+			prophetAllowNoInfo = ccSettings.getBoolean(PROPHET_ALLOW_NOINFO);
+		}
+		if (ccSettings.contains(PROPHET_MIN_DELTA)) {
+			prophetMinDelta = ccSettings.getDouble(PROPHET_MIN_DELTA);
+		}
+
+		if (ccSettings.contains(BUFFER_AWARE_ENABLED)) {
+			bufferAwareEnabled = ccSettings.getBoolean(BUFFER_AWARE_ENABLED);
+		}
+		if (ccSettings.contains(BUFFER_FACTOR_MIN)) {
+			bufferFactorMin = ccSettings.getDouble(BUFFER_FACTOR_MIN);
+		}
+
+		if (ccSettings.contains(FUSION_ENABLED)) {
+			fusionEnabled = ccSettings.getBoolean(FUSION_ENABLED);
+		}
+		if (ccSettings.contains(FUSION_WEIGHT_RL)) {
+			fusionWeightRL = ccSettings.getDouble(FUSION_WEIGHT_RL);
+		}
+		if (ccSettings.contains(FUSION_WEIGHT_PROPHET)) {
+			fusionWeightProphet = ccSettings.getDouble(FUSION_WEIGHT_PROPHET);
+		}
+		if (ccSettings.contains(FUSION_WEIGHT_BUFFER)) {
+			fusionWeightBuffer = ccSettings.getDouble(FUSION_WEIGHT_BUFFER);
+		}
+
+		Settings prophetSettings = new Settings(PROPHET_NS);
+		if (prophetSettings.contains(SECONDS_IN_UNIT_S)) {
+			secondsInTimeUnit = prophetSettings.getInt(SECONDS_IN_UNIT_S);
+		} else {
+			secondsInTimeUnit = 30;
+		}
+		if (prophetSettings.contains(BETA_S)) {
+			beta = prophetSettings.getDouble(BETA_S);
+		} else {
+			beta = DEFAULT_BETA;
+		}
+		if (prophetSettings.contains(P_INIT_S)) {
+			pInit = prophetSettings.getDouble(P_INIT_S);
+		} else {
+			pInit = P_INIT;
+		}
+		if (prophetSettings.contains(GAMMA_S)) {
+			gamma = prophetSettings.getDouble(GAMMA_S);
+		} else {
+			gamma = GAMMA;
+		}
+		initPreds();
 
 		waitForReward = new HashMap<>();
 		candidateReceiver = new ArrayList<>();
@@ -85,6 +174,20 @@ public class CCRouting extends QLearningRouter {
 		updateInterval = r.updateInterval;
 		totalState = r.totalState;
 		totalAction = r.totalAction;
+		prophetEnabled = r.prophetEnabled;
+		prophetAllowNoInfo = r.prophetAllowNoInfo;
+		prophetMinDelta = r.prophetMinDelta;
+		bufferAwareEnabled = r.bufferAwareEnabled;
+		bufferFactorMin = r.bufferFactorMin;
+		fusionEnabled = r.fusionEnabled;
+		fusionWeightRL = r.fusionWeightRL;
+		fusionWeightProphet = r.fusionWeightProphet;
+		fusionWeightBuffer = r.fusionWeightBuffer;
+		secondsInTimeUnit = r.secondsInTimeUnit;
+		beta = r.beta;
+		pInit = r.pInit;
+		gamma = r.gamma;
+		initPreds();
 
 		waitForReward = new HashMap<>();
 		candidateReceiver = new ArrayList<>();
@@ -102,6 +205,156 @@ public class CCRouting extends QLearningRouter {
 		this.visitCount = new HashMap<>();
 	}
 
+	private void initPreds() {
+		this.preds = new HashMap<>();
+		this.lastAgeUpdate = 0.0;
+	}
+
+	private void updateDeliveryPredFor(DTNHost host) {
+		double oldValue = getPredFor(host);
+		double newValue = oldValue + (1 - oldValue) * pInit;
+		preds.put(host, newValue);
+	}
+
+	public double getPredFor(DTNHost host) {
+		ageDeliveryPreds(); // make sure preds are updated before getting
+		if (preds.containsKey(host)) {
+			return preds.get(host);
+		}
+		else {
+			return 0;
+		}
+	}
+
+	protected Map<DTNHost, Double> getDeliveryPreds() {
+		ageDeliveryPreds(); // make sure the aging is done
+		return this.preds;
+	}
+
+	private void ageDeliveryPreds() {
+		if (secondsInTimeUnit <= 0) {
+			return;
+		}
+		double timeDiff = (SimClock.getTime() - this.lastAgeUpdate) /
+			secondsInTimeUnit;
+
+		if (timeDiff == 0) {
+			return;
+		}
+
+		double mult = Math.pow(gamma, timeDiff);
+		for (Map.Entry<DTNHost, Double> e : preds.entrySet()) {
+			e.setValue(e.getValue()*mult);
+		}
+
+		this.lastAgeUpdate = SimClock.getTime();
+	}
+
+	private void updateTransitivePreds(DTNHost host) {
+		MessageRouter otherRouter = host.getRouter();
+		if (!(otherRouter instanceof CCRouting)) {
+			return;
+		}
+
+		double pForHost = getPredFor(host); // P(a,b)
+		Map<DTNHost, Double> othersPreds =
+			((CCRouting)otherRouter).getDeliveryPreds();
+
+		for (Map.Entry<DTNHost, Double> e : othersPreds.entrySet()) {
+			if (e.getKey() == getHost()) {
+				continue; // don't add yourself
+			}
+
+			double pOld = getPredFor(e.getKey()); // P(a,c)_old
+			double pNew = pOld + (1 - pOld) * pForHost * e.getValue() * beta;
+			preds.put(e.getKey(), pNew);
+		}
+	}
+
+	private boolean shouldForwardByBufferFactor(Message m, DTNHost other) {
+		if (!bufferAwareEnabled) {
+			return true;
+		}
+		MessageRouter router = other.getRouter();
+		int free = router.getFreeBufferSize();
+		if (free == Integer.MAX_VALUE) {
+			return true;
+		}
+		return free >= m.getSize();
+	}
+
+	private double getBufferFactor(DTNHost host) {
+		MessageRouter router = host.getRouter();
+		int cInit = router.getBufferSize();
+		if (cInit == Integer.MAX_VALUE || cInit <= 0) {
+			return 1.0;
+		}
+		// BF = 1 - (sum(N_m * B_m) / C_init)
+		Map<Integer, Integer> counts = new HashMap<>();
+		for (Message m : router.getMessageCollection()) {
+			int size = m.getSize();
+			counts.put(size, counts.getOrDefault(size, 0) + 1);
+		}
+		long sum = 0;
+		for (Map.Entry<Integer, Integer> e : counts.entrySet()) {
+			sum += (long)e.getKey() * (long)e.getValue();
+		}
+		double bf = 1.0 - ((double)sum / (double)cInit);
+		if (bf < 0) bf = 0;
+		if (bf > 1) bf = 1;
+		return bf;
+	}
+
+	private double getFusionScore(Message m, DTNHost other) {
+		if (!fusionEnabled) {
+			return sumList(countInterestSimilarity(m, other));
+		}
+		// RL component: normalize interest similarity to [0,1]
+		List<Double> sims = countInterestSimilarity(m, other);
+		double rlScore = 0.0;
+		if (!sims.isEmpty()) {
+			rlScore = sumList(sims) / sims.size();
+		}
+		// PRoPHET component: positive delta only
+		double prophetDelta = getOtherPredFor(m, other) - getPredFor(m.getTo());
+		if (prophetDelta < 0) prophetDelta = 0;
+		// Buffer component: BF in [0,1]
+		double bf = bufferAwareEnabled ? getBufferFactor(other) : 1.0;
+		return (fusionWeightRL * rlScore) + (fusionWeightProphet * prophetDelta) + (fusionWeightBuffer * bf);
+	}
+
+	private boolean shouldForwardByProphet(Message m, DTNHost other) {
+		if (!prophetEnabled) {
+			return true;
+		}
+		if (m.getTo() == other) {
+			return true;
+		}
+
+		double otherPred = getOtherPredFor(m, other);
+		double myPred = getPredFor(m.getTo());
+
+		if (otherPred == 0 && myPred == 0) {
+			return prophetAllowNoInfo; // no PRoPHET info yet
+		}
+
+		return (otherPred - myPred) > prophetMinDelta;
+	}
+
+
+	private double getOtherPredFor(Message m, DTNHost other) {
+		if (!prophetEnabled) {
+			return 0;
+		}
+		MessageRouter otherRouter = other.getRouter();
+		if (otherRouter instanceof CCRouting) {
+			return ((CCRouting)otherRouter).getPredFor(m.getTo());
+		}
+
+		return 0;
+	}
+
+
 	@Override
 	public void changedConnection(Connection con) {
 		super.changedConnection(con);
@@ -117,6 +370,12 @@ public class CCRouting extends QLearningRouter {
 
 			if(!this.waitForReward.get(otherNode.getAddress()).getValue().booleanValue()) {
 				this.candidateReceiver.add(con);
+			}
+
+			// PRoPHET pillars: encounter update + transitivity
+			if (prophetEnabled) {
+				updateDeliveryPredFor(otherNode);
+				updateTransitivePreds(otherNode);
 			}
 
 		} else {
@@ -217,28 +476,32 @@ public class CCRouting extends QLearningRouter {
 				if (othRouter.isTransferring()) {
 					continue; // skip hosts that are transferring
 				}
-	
 				for (Message m : msgCollection) {
 					if (othRouter.hasMessage(m.getId())) {
 						continue; // skip messages that the other one has
 					}
+
+					if (!shouldForwardByBufferFactor(m, other)) {
+						continue;
+					}
+
 					
 					// pesan yg memiliki interest sama dari node dimasukan ke list
 					if(isSameInterest(m, other)) {
 						tempMessages.add(new Tuple<>(m,con));
 					}
 				}
-	
-					// order by interest similarity secara desc
-					Collections.sort(tempMessages, new InteresetSimilarityComparator());
+
+				// order by PRoPHET predictability then interest similarity (desc)
+				Collections.sort(tempMessages, new InteresetSimilarityComparator());
 		
-					messages.addAll(tempMessages);
-					tempMessages.clear();
+				messages.addAll(tempMessages);
+				tempMessages.clear();
 		
-					this.waitForReward.put(other.getAddress(), new Tuple<>(other, true));
+				this.waitForReward.put(other.getAddress(), new Tuple<>(other, true));
 	
-					it.remove();
-					it = candidateReceiver.iterator();
+				it.remove();
+				it = candidateReceiver.iterator();
 				}
 				
 		}
@@ -256,17 +519,23 @@ public class CCRouting extends QLearningRouter {
 	 * Interest Similarity tertinggi
 	 * Sort DESC
 	 */
-	private class InteresetSimilarityComparator implements Comparator<Tuple<Message, Connection>> {
+		private class InteresetSimilarityComparator implements Comparator<Tuple<Message, Connection>> {
 		public int compare(Tuple<Message, Connection> tuple1, Tuple<Message, Connection> tuple2) {
-			double d1 = sumList(countInterestSimilarity(tuple1.getKey(), 
-													tuple1.getValue().getOtherNode(getHost())));
-
-			double d2 = sumList(countInterestSimilarity(tuple2.getKey(), 
-													tuple2.getValue().getOtherNode(getHost())));
-
-			return Double.compare(d2, d1);
+			Message m1 = tuple1.getKey();
+			Message m2 = tuple2.getKey();
+			DTNHost h1 = tuple1.getValue().getOtherNode(getHost());
+			DTNHost h2 = tuple2.getValue().getOtherNode(getHost());
+			double s1 = getFusionScore(m1, h1);
+			double s2 = getFusionScore(m2, h2);
+			int cmp = Double.compare(s2, s1);
+			if (cmp != 0) {
+				return cmp;
+			}
+			return compareByQueueMode(m1, m2);
 		}
 	}
+
+
 
 	@Override
 	public CCRouting replicate() {
@@ -353,6 +622,7 @@ public class CCRouting extends QLearningRouter {
 		this.msgTransferred = value;
 	}
 
+	@Override
 	public Map<Integer, Tuple<DTNHost, Boolean>> getMapWaitForReward() {
 		return this.waitForReward;
 	}

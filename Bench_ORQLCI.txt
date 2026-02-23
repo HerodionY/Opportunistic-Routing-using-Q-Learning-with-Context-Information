@@ -3,11 +3,12 @@
 #
 
 ## Scenario settings
-Scenario.name = ORQLCI-DTN
+Scenario.name = Bench-ORQLCI
 Scenario.simulateConnections = true
 Scenario.updateInterval = 0.1
 # 43200s == 12h
-Scenario.endTime = 43200
+Scenario.endTime = 10000
+Events1.interval = 5,10
 
 ## Interface-specific settings
 # "Bluetooth" interface for all nodes
@@ -74,16 +75,16 @@ Group6.nrofHosts = 2
 
 ## ORQLCIPerformanceRouter specific settings
 # Update interval in seconds for Q-Learning reward computation
-ORQLCIPerformanceRouter.updateInterval = 900
+ORQLCIPerformanceRouter.updateInterval = 100
 # Total number of states (should match total number of nodes: 126)
 ORQLCIPerformanceRouter.totalState = 126
 # Total number of actions (same as totalState for node-based actions)
 ORQLCIPerformanceRouter.totalAction = 126
 # Periodic Message Drop settings
 # dropInterval: interval in seconds between drops
-ORQLCIPerformanceRouter.dropInterval = 3600
+ORQLCIPerformanceRouter.dropInterval = 100
 # dropAmount: number of oldest messages to drop at each interval
-ORQLCIPerformanceRouter.dropAmount = 2
+ORQLCIPerformanceRouter.dropAmount = 1
 
 ## Message creation parameters
 Events.nrof = 1

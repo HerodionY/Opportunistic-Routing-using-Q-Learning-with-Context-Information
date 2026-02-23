@@ -3,11 +3,12 @@
 #
 
 ## Scenario settings
-Scenario.name = ORQLCI-DTN
+Scenario.name = Bench-CCRouting
 Scenario.simulateConnections = true
 Scenario.updateInterval = 0.1
 # 43200s == 12h
-Scenario.endTime = 43200
+Scenario.endTime = 10000
+Events1.interval = 5,10
 
 ## Interface-specific settings
 # "Bluetooth" interface for all nodes
@@ -21,7 +22,7 @@ Scenario.nrofHostGroups = 6
 
 ## Common settings for all groups
 Group.movementModel = ShortestPathMapBasedMovement
-Group.router = ORQLCIPerformanceRouter
+Group.router = CCRouting
 Group.bufferSize = 5M
 Group.waitTime = 0, 120
 Group.nrofInterfaces = 1
@@ -72,18 +73,16 @@ Group6.waitTime = 10, 30
 Group6.speed = 7, 10
 Group6.nrofHosts = 2
 
-## ORQLCIPerformanceRouter specific settings
-# Update interval in seconds for Q-Learning reward computation
-ORQLCIPerformanceRouter.updateInterval = 900
-# Total number of states (should match total number of nodes: 126)
-ORQLCIPerformanceRouter.totalState = 126
-# Total number of actions (same as totalState for node-based actions)
-ORQLCIPerformanceRouter.totalAction = 126
-# Periodic Message Drop settings
-# dropInterval: interval in seconds between drops
-ORQLCIPerformanceRouter.dropInterval = 3600
-# dropAmount: number of oldest messages to drop at each interval
-ORQLCIPerformanceRouter.dropAmount = 2
+## CCRouting (Updated) specific settings
+CCRouting.updateInterval = 100
+CCRouting.totalState = 126
+CCRouting.totalAction = 126
+CCRouting.prophetEnabled = true
+CCRouting.fusionEnabled = true
+CCRouting.fusionWeightRL = 0.8
+CCRouting.fusionWeightProphet = 0.1
+CCRouting.fusionWeightBuffer = 0.1
+CCRouting.bufferAwareEnabled = true
 
 ## Message creation parameters
 Events.nrof = 1

@@ -3,7 +3,7 @@
 #
 
 ## Scenario
-Scenario.name = ORQLCI-NoMap
+Scenario.name = ORQLCI-ver1-NoMap
 Scenario.simulateConnections = true
 Scenario.updateInterval = 0.1
 Scenario.endTime = 43200
@@ -17,7 +17,8 @@ btInterface.transmitRange = 10
 Scenario.nrofHostGroups = 3
 
 Group.movementModel = RandomWaypoint
-Group.router = CCRouting
+## Group.router = CCRouting
+Group.router = ORQLCIRoutingV1
 Group.bufferSize = 5M
 Group.waitTime = 0,120
 Group.speed = 0.5,1.5

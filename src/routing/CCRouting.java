@@ -1,7 +1,7 @@
 package routing;
 
-import java.util.*;
 import core.*;
+import java.util.*;
 import reinforcement.*;
 
 // public class CCRouting extends ActiveRouter {
@@ -172,7 +172,7 @@ public class CCRouting extends QLearningRouter {
 		}
 		initPreds();
 
-		waitForReward = new HashMap<>();
+		waitForReward = new LinkedHashMap<>();
 		candidateReceiver = new ArrayList<>();
 		dataContact = new ArrayList<>();
 		listOfSumDataContact = new ArrayList<>();
@@ -218,12 +218,12 @@ public class CCRouting extends QLearningRouter {
 
 		this.ql = new QLearning(totalState, totalAction, this.explorationPolicy, false);
 
-		this.totalRewardWithNode = new HashMap<>();
-		this.visitCount = new HashMap<>();
+		this.totalRewardWithNode = new LinkedHashMap<>();
+		this.visitCount = new LinkedHashMap<>();
 	}
 
 	private void initPreds() {
-		this.preds = new HashMap<>();
+		this.preds = new LinkedHashMap<>();
 		this.lastAgeUpdate = 0.0;
 	}
 
@@ -454,6 +454,10 @@ public class CCRouting extends QLearningRouter {
 
 					this.visitCount.put(other, totalVisit);
 					this.totalRewardWithNode.put(other, totalRewardForDiscFac);	
+
+					// === DI SINI PERLU ADA IDENTIFIKASI MESSAGE/DESTINATION UNTUK ORQLCI ===
+                    // int destinationAddress = ... (ID node tujuan dari pesan yang dikirim)
+                    // double encounterProb = getPredFor(other); // Probabilitas PRoPHET
 				
 					// Q-Learning
 					int action = this.ql.GetAction(entry.getKey(), waitForReward, true);
@@ -461,6 +465,14 @@ public class CCRouting extends QLearningRouter {
 					double bf = bufferAwareEnabled ? getBufferFactor(other) : 1.0;
 					this.ql.setDiscountFactorDynamic(discountGamma, bf);
 					this.ql.UpdateState(entry.getKey(), action, reward, newState, this, other);	
+
+					/*
+                    // === TAMBAHAN ORQLCI (DI-COMMENT) ===
+                    // this.ql.setDiscountFactorDynamic(discountGamma, bf, encounterProb);
+                    // int action = this.ql.GetAction(destinationAddress, entry.getKey(), waitForReward, true);
+                    // this.ql.UpdateState(destinationAddress, entry.getKey(), action, reward, newState, this, other); 
+                    // ====================================
+                    */
 
 					othRouter.dataReceived = 0;
 					othRouter.dataTransferred = 0;
@@ -488,7 +500,17 @@ public class CCRouting extends QLearningRouter {
 			DTNHost other = con.getOtherNode(getHost());
 			CCRouting othRouter = (CCRouting) other.getRouter();
 
+			// === DI SINI JUGA PERLU IDENTIFIKASI DESTINATION JIKA MENGGUNAKAN ORQLCI ===
+            // Karena satu node bisa punya banyak pesan dengan tujuan berbeda.
+            // int dummyDestination = ...
+
 			newState = this.ql.GetAction(other.getAddress(), this.waitForReward, false);
+
+			
+            // === TAMBAHAN ORQLCI (DI-COMMENT) ===
+            // newState = this.ql.GetAction(dummyDestination, other.getAddress(), this.waitForReward, false);
+            // ====================================
+            
 			
 			if(newState == other.getAddress()) {
 				if (othRouter.isTransferring()) {
@@ -531,6 +553,76 @@ public class CCRouting extends QLearningRouter {
 
 		return tryMessagesForConnected(messages);
 	}
+
+
+	// === TAMBAHAN ORQLCI (DI-COMMENT) ===
+    // newState = this.ql.GetAction(dummyDestination, other.getAddress(), this.waitForReward, false);
+    // ====================================
+	// private Tuple<Message, Connection>  tryOtherMessage() {
+    //     List<Tuple<Message, Connection>> messages = new ArrayList<>();
+    //     List<Tuple<Message, Connection>> tempMessages = new ArrayList<>();
+
+    //     Collection<Message> msgCollection = getMessageCollection();
+        
+    //     Iterator<Connection> it = candidateReceiver.iterator();
+    //     while (it.hasNext()) {
+    //         Connection con = it.next();
+    //         DTNHost other = con.getOtherNode(getHost());
+    //         CCRouting othRouter = (CCRouting) other.getRouter();
+
+    //         if (othRouter.isTransferring()) {
+    //             continue; // skip hosts that are transferring
+    //         }
+
+    //         // LOOPING PESAN DIMULAI DI SINI
+    //         for (Message m : msgCollection) {
+    //             if (othRouter.hasMessage(m.getId())) {
+    //                 continue; // skip messages that the other one has
+    //             }
+
+    //             if (!shouldForwardByBufferFactor(m, other)) {
+    //                 continue;
+    //             }
+
+    //             // 1. CARI DESTINATION DARI PESAN INI
+    //             int destinationAddress = m.getTo().getAddress();
+
+    //             // 2. TANYA Q-LEARNING UNTUK DESTINATION INI
+    //             // (Buka comment ini jika kamu sudah memakai Q-Table Map di QLearning.java)
+    //             // newState = this.ql.GetAction(destinationAddress, other.getAddress(), this.waitForReward, false);
+                
+    //             // (Untuk sementara pakai yang lama dulu selama belum full pindah)
+    //             newState = this.ql.GetAction(other.getAddress(), this.waitForReward, false);
+
+    //             // 3. JIKA Q-LEARNING SETUJU (newState == other), BARU CEK INTEREST
+    //             if(newState == other.getAddress()) {
+    //                 if(isSameInterest(m, other)) {
+    //                     tempMessages.add(new Tuple<>(m,con));
+    //                 }
+    //             }
+    //         }
+
+    //         // Jika ada pesan yang lolos seleksi Q-Learning & Interest
+    //         if (!tempMessages.isEmpty()) {
+    //             // order by PRoPHET predictability then interest similarity (desc)
+    //             Collections.sort(tempMessages, new InteresetSimilarityComparator());
+        
+    //             messages.addAll(tempMessages);
+    //             tempMessages.clear();
+        
+    //             this.waitForReward.put(other.getAddress(), new Tuple<>(other, true));
+    
+    //             it.remove();
+    //             it = candidateReceiver.iterator();
+    //         }
+    //     }
+
+    //     if (messages.isEmpty()) {
+    //         return null;
+    //     }
+
+    //     return tryMessagesForConnected(messages);
+    // }
 
 	/**
 	 * Comparator untuk sorting message berdasarkan

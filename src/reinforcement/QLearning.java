@@ -24,11 +24,10 @@
 
 package reinforcement;
 
-import java.util.Map;
-import java.util.Random;
-
 import core.DTNHost;
 import core.Tuple;
+import java.util.Map;
+import java.util.Random;
 import routing.QLearningRouter;
 
 /**
@@ -45,6 +44,11 @@ public class QLearning{
     private int actions;
     // q-values
     private double[][] qvalues;
+    /* // === TAMBAHAN ORQLCI: Q-TABLE BERBASIS TUJUAN (DI-COMMENT) ===
+    // Menggunakan Map untuk menyimpan Q-Table (state x action) khusus untuk setiap node tujuan (destination)
+    // private Map<Integer, double[][]> qvalues;
+    // ==============================================================
+    */
     // exploration policy
     private IExplorationPolicy explorationPolicy;
 
@@ -74,6 +78,12 @@ public class QLearning{
         for ( int i = 0; i < states; i++ ){
             qvalues[i] = new double[actions];
         }
+
+        /*
+        // === TAMBAHAN ORQLCI: INISIALISASI Q-TABLE MAP (DI-COMMENT) ===
+        // qValuesPerDest = new HashMap<>();
+        // ==============================================================
+        */
 
         // do randomization
         if (randomize){
@@ -191,7 +201,15 @@ public class QLearning{
      * @param state Current state to get an action for.
      * @return Returns the action for the state.
      */
-    public int GetAction( int state, Map<Integer, Tuple<DTNHost, Boolean>> waitForReward,  boolean isWaitingReward ){
+    public int GetAction(/* int destination, */ int state, Map<Integer, Tuple<DTNHost, Boolean>> waitForReward,  boolean isWaitingReward ){
+        /*
+        // === TAMBAHAN ORQLCI: AMBIL Q-VALUES BERDASARKAN DESTINATION (DI-COMMENT) ===
+        // if (!qValuesPerDest.containsKey(destination)) {
+        //     inisialisasi table untuk destination baru...
+        // }
+        // return explorationPolicy.ChooseAction( qValuesPerDest.get(destination)[state], waitForReward, isWaitingReward );
+        // ==============================================================================
+        */
         return explorationPolicy.ChooseAction( qvalues[state], waitForReward, isWaitingReward );
     }
     
@@ -206,6 +224,11 @@ public class QLearning{
         // next state's action estimations
         double[] nextActionEstimations = qvalues[nextState];
                     // find maximum expected summary reward from the next state
+        /*
+        // === TAMBAHAN ORQLCI: UPDATE STATE BERDASARKAN DESTINATION (DI-COMMENT) ===
+        // double[] nextActionEstimations = qValuesPerDest.get(destination)[nextState];
+        // ==========================================================================
+        */
         double maxNextExpectedReward = nextActionEstimations[0];
 
         for ( int i = 1; i < actions; i++ ){
@@ -215,6 +238,11 @@ public class QLearning{
 
         // previous state's action estimations
         double[] previousActionEstimations = qvalues[previousState];
+        /*
+        // === TAMBAHAN ORQLCI: UPDATE PREVIOUS STATE BERDASARKAN DESTINATION (DI-COMMENT) ===
+        // double[] previousActionEstimations = qValuesPerDest.get(destination)[previousState];
+        // ===================================================================================
+        */
         // update expexted summary reward of the previous state
         previousActionEstimations[action] *= (1.0 - learningRate);
         previousActionEstimations[action] += (learningRate * (reward + discountFactor * maxNextExpectedReward));

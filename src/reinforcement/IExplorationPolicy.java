@@ -24,10 +24,10 @@
 
 package reinforcement;
 
-import java.util.Map;
-
 import core.DTNHost;
 import core.Tuple;
+import java.util.List;
+import java.util.Map;
 
 /**
  * The interface describes exploration policies, which are used in Reinforcement
@@ -44,5 +44,5 @@ public interface IExplorationPolicy {
      * @param actionEstimates Action estimates.
      * @return Returns selected action.
      */
-    public int ChooseAction(double[] actionEstimates, Map<Integer, Tuple<DTNHost, Boolean>> waitForReward, boolean isWaitingReward);
+    public int ChooseAction(double[] actionEstimates, Map<Integer, Tuple<DTNHost, List  <Integer>>> waitForReward, boolean isWaitingReward);
 }

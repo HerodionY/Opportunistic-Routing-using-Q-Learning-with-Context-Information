@@ -341,5 +341,5 @@ public abstract class QLearningRouter extends ActiveRouter {
 		return valInterest;
 	}
 
-	public abstract Map<Integer, Tuple<DTNHost, Boolean>> getMapWaitForReward();
+	public abstract Map<Integer, Tuple<DTNHost, List<Integer>>> getMapWaitForReward();
 }

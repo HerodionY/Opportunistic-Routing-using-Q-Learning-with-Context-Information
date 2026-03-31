@@ -73,5 +73,5 @@ MapBasedMovement.mapFile4 = data/shops.wkt
 Report.nrofReports = 3
 Report.reportDir = reports/
 Report.report1 = MessageStatsReport
-Report.report2 = ContactTimesReport
+Report.report2 = MessageStatsTimeReport
 Report.report3 = PerformanceReport

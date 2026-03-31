@@ -102,8 +102,11 @@ Report.nrofReports = 3
 Report.warmup = 0
 Report.reportDir = reports/
 Report.report1 = MessageStatsReport
-Report.report2 = ContactTimesReport
+Report.report2 = MessageStatsTimeReport
 Report.report3 = PerformanceReport
+
+# Menit / Detik Interval antar plot data pada grafik (default: 1000s)
+MessageStatsTimeReport.interval = 1000
 
 ## Optimization settings
 Optimization.cellSizeMult = 5

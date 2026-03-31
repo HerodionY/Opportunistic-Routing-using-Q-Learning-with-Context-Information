@@ -206,13 +206,29 @@ public class QLearning{
      * Dynamic discount factor using contextual info.
      * gamma_d(s,x) = gamma * BF_x * EF_x
      */
-    public void setDiscountFactorDynamic(double baseGamma, double bufferFactor, double encounterProbability) {
-        double g = baseGamma * bufferFactor * encounterProbability;
+    // public void setDiscountFactorDynamic(double baseGamma, double bufferFactor, double encounterProbability) {
+    //     double g = baseGamma * bufferFactor * encounterProbability;
+    //     if (g > 1.0) {
+    //         g = 1.0;
+    //     } else if (g < 0.0) {
+    //         g = 0.0;
+    //     }
+    //     this.discountFactor = g;
+    // }
+
+    /**
+     * Dynamic discount factor using contextual info. (ORQLCI Paper Equation 7)
+     * gamma_d(s,x) = gamma * BF_x
+     */
+    public void setDiscountFactorDynamic(double baseGamma, double bufferFactor) {
+        double g = baseGamma * bufferFactor;
+        
         if (g > 1.0) {
             g = 1.0;
         } else if (g < 0.0) {
             g = 0.0;
         }
+        
         this.discountFactor = g;
     }
     

@@ -396,8 +396,8 @@ public class CCRouting extends QLearningRouter {
                         int action = this.ql.GetAction(destAddress, entry.getKey(), this.waitForReward, true);
                         this.ql.setLearningRate(totalVisit, learningCoeff);
 
-                        // Discount factor dihitung sesuai Persamaan (5) di paper
-                        this.ql.setDiscountFactorDynamic(discountGamma, bf, encounterProb);
+                        // Discount factor dihitung sesuai Persamaan (7) di paper
+                        this.ql.setDiscountFactorDynamic(discountGamma, bf);
                         this.ql.UpdateState(destAddress, entry.getKey(), action, reward, newState, this, other);
                     }
                     // === END UPDATE SESUAI ORQLCI ===

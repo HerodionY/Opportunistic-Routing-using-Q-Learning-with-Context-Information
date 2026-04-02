@@ -1,0 +1,4 @@
+label,scenario,delivery_prob,overhead_ratio,latency_avg,dropped,dead_final,dead_ratio_final
+Bench_CCRouting_Energy,Bench-CCRouting-Energy,2.6113,1.9721,3252.9608,17400.0,126,1.0
+Bench_RL_Only,Bench-CCRouting-RLOnly,3.4305,3.3566,2795.197,35714.0,0,0.0
+Bench_Prophet_Only,Bench-Prophet-Only,0.2521,84.7867,5029.0242,64175.0,0,0.0

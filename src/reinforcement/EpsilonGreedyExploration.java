@@ -26,6 +26,7 @@ package reinforcement;
 
 import core.DTNHost;
 import core.Tuple;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
@@ -84,28 +85,49 @@ public class EpsilonGreedyExploration implements IExplorationPolicy{
     public int ChooseAction(double[] actionEstimates, Map<Integer, Tuple<DTNHost, List  <Integer>>> waitForReward, boolean isWaitingReward){
         int actionsCount = actionEstimates.length;
 
-        // find the best action (greedy)
-        double maxReward = actionEstimates[0];
-        int greedyAction = 0;
-
-        for ( int i = 1; i < actionsCount; i++ )
-        {
-            if(waitForReward.get(i) != null) {
-                if(waitForReward.get(i).getValue().contains(isWaitingReward) && (actionEstimates[i] > maxReward)) {
-                    maxReward = actionEstimates[i];
-                    greedyAction = i;
+        // filter candidate actions based on pending status
+        List<Integer> candidates = new ArrayList<Integer>(actionsCount);
+        for (int i = 0; i < actionsCount; i++) {
+            boolean pending = false;
+            if (waitForReward != null && waitForReward.get(i) != null &&
+                    waitForReward.get(i).getValue() != null &&
+                    !waitForReward.get(i).getValue().isEmpty()) {
+                pending = true;
+            }
+            if (isWaitingReward) {
+                if (pending) {
+                    candidates.add(i);
                 }
+            } else {
+                if (!pending) {
+                    candidates.add(i);
+                }
+            }
+        }
+        if (candidates.isEmpty()) {
+            for (int i = 0; i < actionsCount; i++) {
+                candidates.add(i);
+            }
+        }
+
+        // find the best action (greedy) among candidates
+        int greedyAction = candidates.get(0);
+        double maxReward = actionEstimates[greedyAction];
+        for (int idx = 1; idx < candidates.size(); idx++) {
+            int i = candidates.get(idx);
+            if (actionEstimates[i] > maxReward) {
+                maxReward = actionEstimates[i];
+                greedyAction = i;
             }
         }
 
         // try to do exploration
-        if ( r.nextDouble( ) < epsilon )
-        {
-            int randomAction = r.nextInt( actionsCount - 1 );
-
-            if ( randomAction >= greedyAction )
-                randomAction++;
-
+        if ( r.nextDouble( ) < epsilon && candidates.size() > 1 ) {
+            int randIndex = r.nextInt(candidates.size() - 1);
+            int randomAction = candidates.get(randIndex);
+            if (randomAction == greedyAction) {
+                randomAction = candidates.get(candidates.size() - 1);
+            }
             return randomAction;
         }
 

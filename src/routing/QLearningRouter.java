@@ -323,19 +323,29 @@ public abstract class QLearningRouter extends ActiveRouter {
 	}
 
 	protected List<Double> countInterestSimilarity(Message m, DTNHost n) {
-		List<Boolean> topicMsg = (ArrayList) m.getProperty(MESSAGE_TOPICS_S);
+		Object topObj = m.getProperty(MESSAGE_TOPICS_S);
+		if (topObj == null || !(topObj instanceof List)) {
+			return new ArrayList<Double>();
+		}
+		
+		List<Boolean> topicMsg = (List<Boolean>) topObj;
 		List<Boolean> topicNode = n.getSocialProfileOI();
 		List<Double> weightNode = n.getSocialProfile();
 		
+		if (topicNode == null || weightNode == null) {
+			return new ArrayList<Double>();
+		}
+		
 		List<Double> valInterest = new ArrayList<>();
-
 		Iterator<Boolean> itTop = topicMsg.iterator();
 
 		int i = 0;
-		while(itTop.hasNext()) {
-			if(itTop.next().equals(topicNode.get(i))) {
+		while(itTop.hasNext() && i < topicNode.size() && i < weightNode.size()) {
+			Boolean mTopic = itTop.next();
+			if(mTopic != null && mTopic.equals(topicNode.get(i))) {
 				valInterest.add(weightNode.get(i));
 			} 
+			i++;
 		}
 
 		return valInterest;

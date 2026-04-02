@@ -86,21 +86,6 @@ public class QLearning{
         // for ( int i = 0; i < states; i++ ){
         //     qvalues[i] = new double[actions];
         // }
-
-        
-        
-        
-
-        // do randomization
-        // if (randomize){
-        //     Random r = new Random();
-
-        //     for ( int i = 0; i < states; i++ ){
-        //         for ( int j = 0; j < actions; j++ ){
-        //             qvalues[i][j] = r.nextDouble() / 10;
-        //         }
-        //     }
-        // }
     }
 
     // === FUNGSI BARU: Untuk membuat tabel Q khusus satu destination ===
@@ -150,37 +135,7 @@ public class QLearning{
     }
 
     /**
-     * Get Learning Rate
-     * @return Learning Rate
-     */
-    public double getLearningRate() {
-        return learningRate;
-    }
-
-    /**
-     * Learning rate, [0, 1].
-     * The value determines the amount of updates Q-function receives
-     * during learning. The greater the value, the more updates the function receives.
-     * The lower the value, the less updates it receives.
-     * 
-     * @param learningRate
-     */
-    public void setLearningRate(double visitCount, double coeff) {
-        if (visitCount <= 0) {
-            visitCount = 1;
-        }
-        double lr = coeff / visitCount;
-        if (lr > 1.0) {
-            lr = 1.0;
-        } else if (lr < 0.0) {
-            lr = 0.0;
-        }
-        this.learningRate = lr;
-    }
-
-    /**
-     * Get Discount factor for the expected summary reward.
-     * 
+     * Discount factor.
      * @return Discount Factor
      */
     public double getDiscountFactor() {
@@ -188,47 +143,40 @@ public class QLearning{
     }
 
     /**
-     * Discount factor for the expected summary reward. The value serves as
-     * multiplier for the expected reward. So if the value is set to 1,
-     * then the expected summary reward is not discounted. If the value is getting
-     * smaller, then smaller amount of the expected reward is used for actions'
-     * estimates update.
-     * 
-     * @param discountFactor
+     * Discount factor.
+     * @param discountFactor Discount Factor
      */
-   public void setDiscountFactor(double totalReward) {
-        double pow = gamma2 / totalReward;
-
-        this.discountFactor = Math.pow(gamma1, pow);
+    public void setDiscountFactor(double discountFactor) {
+        this.discountFactor = discountFactor;
     }
 
     /**
-     * Dynamic discount factor using contextual info.
-     * gamma_d(s,x) = gamma * BF_x * EF_x
+     * Learning rate.
+     * @return Learning Rate
      */
-    // public void setDiscountFactorDynamic(double baseGamma, double bufferFactor, double encounterProbability) {
-    //     double g = baseGamma * bufferFactor * encounterProbability;
-    //     if (g > 1.0) {
-    //         g = 1.0;
-    //     } else if (g < 0.0) {
-    //         g = 0.0;
-    //     }
-    //     this.discountFactor = g;
-    // }
+    public double getLearningRate() {
+        return learningRate;
+    }
 
     /**
-     * Dynamic discount factor using contextual info. (ORQLCI Paper Equation 7)
-     * gamma_d(s,x) = gamma * BF_x
+     * Learning rate.
+     * @param learningRate Learning Rate
      */
-    public void setDiscountFactorDynamic(double baseGamma, double bufferFactor) {
-        double g = baseGamma * bufferFactor;
+    public void setLearningRate(double learningRate) {
+        this.learningRate = learningRate;
+    }
+
+    public void setLearningRate(int n, double h) {
+        this.learningRate = h / (double)n;
+    }
+
+    public void setDiscountFactorDynamic(double baseGamma, double bufferFactor, double energyFactor) {
+        double g = baseGamma * bufferFactor * energyFactor;
         
-        if (g > 1.0) {
-            g = 1.0;
-        } else if (g < 0.0) {
-            g = 0.0;
-        }
-        
+        // ensure g is in reasonable range
+        if (g < 0) g = 0;
+        if (g > 1) g = 1;
+
         this.discountFactor = g;
     }
     
@@ -255,15 +203,11 @@ public class QLearning{
      * @param nextState Next state.
      */
     public void UpdateState(int destination, int previousState, int action, double reward, int nextState, QLearningRouter router, DTNHost pendingHost ){
-        // next state's action estimations
-        // double[] nextActionEstimations = qvalues[nextState];
-                    // find maximum expected summary reward from the next state
-        
-        // === TAMBAHAN ORQLCI: UPDATE STATE BERDASARKAN DESTINATION (DI-COMMENT) ===
         initDestinationIfNeeded(destination);
-         double[] nextActionEstimations = qvalues.get(destination)[nextState];
-        // ==========================================================================
-        
+        double[][] table = qvalues.get(destination);
+
+        // find maximum expected summary reward from the next state
+        double[] nextActionEstimations = table[nextState];
         double maxNextExpectedReward = nextActionEstimations[0];
 
         for ( int i = 1; i < actions; i++ ){
@@ -272,32 +216,18 @@ public class QLearning{
         }
 
         // previous state's action estimations
-        // double[] previousActionEstimations = qvalues[previousState];
+        double[] previousActionEstimations = table[previousState];
         
-        // === TAMBAHAN ORQLCI: UPDATE PREVIOUS STATE BERDASARKAN DESTINATION (DI-COMMENT) ===
-         double[] previousActionEstimations = qvalues.get(destination)[previousState];
-        // ===================================================================================
-        
-        // update expexted summary reward of the previous state
+        // update expected summary reward of the previous state
         previousActionEstimations[action] *= (1.0 - learningRate);
         previousActionEstimations[action] += (learningRate * (reward + discountFactor * maxNextExpectedReward));
 
-        // reset data receive & transmit => 0
-        // router.setDataReceiveTransmit(0);
-        
-        // Map<Integer, Tuple<DTNHost, Boolean>> waitForReward = router.getMapWaitForReward();
-        // // ubah status pending menjadi available (wait for reward => false)
-        // waitForReward.put(previousState, new Tuple<>(pendingHost, false)); // set wait for reward false
-        // SESUAIKAN TIPE DATA MENJADI List<Integer>
+        // update wait for reward state
         Map<Integer, Tuple<DTNHost, List<Integer>>> waitForReward = router.getMapWaitForReward();
-        
-        // UBAH false MENJADI new ArrayList<Integer>() sebagai penanda status available
         waitForReward.put(previousState, new Tuple<>(pendingHost, new ArrayList<Integer>()));
     }
 
     public double getQV(int destination, int state, int action) {
-        // return qvalues[state][action];
-
         // === TAMBAHAN ORQLCI: GET Q-VALUE BERDASARKAN DESTINATION (DI-COMMENT) ===
         initDestinationIfNeeded(destination);
         return qvalues.get(destination)[state][action];

@@ -3,12 +3,13 @@ package routing;
 import core.*;
 import java.util.*;
 import reinforcement.*;
+import routing.community.Duration;
 
 public class CCRouting extends QLearningRouter {
 
     private double updateInterval;
 
-    // Variable untuk Congestion Ratio (Tetap dipertahankan untuk metrik/log, tapi tidak dipakai di Q-Learning)
+    // Variable untuk Congestion Ratio (Metrik, tidak digunakan langsung di Q-Learning)
     private int msgReceived = 0;
     private int msgTransferred = 0;
     private int dataReceived = 0;
@@ -24,11 +25,9 @@ public class CCRouting extends QLearningRouter {
     // Variable untuk learning
     private QLearning ql;
     private IExplorationPolicy explorationPolicy;
-    private int totalState;
-    private int totalAction;
-    private Map<DTNHost, Double> totalRewardWithNode;
-    private Map<DTNHost, Integer> visitCount;
-    private int newState = 0;
+    private int totalState = 0;
+    private int totalAction = 0;
+    private Map<Integer, Integer> visitCount;
 
     // PRoPHET delivery predictability state
     private int secondsInTimeUnit;
@@ -46,14 +45,31 @@ public class CCRouting extends QLearningRouter {
     private double fusionWeightRL = 0.0;
     private double fusionWeightProphet = 0.0;
     private double fusionWeightBuffer = 0.0;
+    private double fusionWeightEnergy = 0.0;
+
+    // Energy awareness
+    private boolean energyAwareEnabled = false;
+    private boolean energyAffectsLearning = true;
+    private double energyThreshold = 0.10;
+    private double energyInit = 0.0;
+    private double energyInitDelta = 0.0;
+    private double scanEnergy = 0.0;
+    private double transmitEnergy = 0.0;
+    private double warmupTime = 0.0;
+    private double scanInterval = 0.0;
+    private double energyCapacity = 0.0;
+    private double currentEnergy = 0.0;
+    private double lastEnergyUpdate = 0.0;
+    private double lastScanUpdate = 0.0;
+    private ModuleCommunicationBus comBus = null;
+    private static Random energyRng = null;
+    private static final String ENERGY_CAPACITY_ID = "Energy.capacity";
 
     // Learning parameters
     private double discountGamma = 0.6;
     private double learningCoeff = 0.8;
 
-    // Map untuk menyimpan status pending (dikirim ke tujuan mana saja) - Format ORQLCI
     private Map<Integer, Tuple<DTNHost, List<Integer>>> waitForReward;
-
     private List<Connection> candidateReceiver;
 
     private static final String CCROUTING_NS = "CCRouting";
@@ -79,8 +95,17 @@ public class CCRouting extends QLearningRouter {
     private static final String FUSION_WEIGHT_RL = "fusionWeightRL";
     private static final String FUSION_WEIGHT_PROPHET = "fusionWeightProphet";
     private static final String FUSION_WEIGHT_BUFFER = "fusionWeightBuffer";
+    private static final String FUSION_WEIGHT_ENERGY = "fusionWeightEnergy";
     private static final String DISCOUNT_GAMMA_S = "discountGamma";
     private static final String LEARNING_COEFF_S = "learningCoeff";
+    private static final String ENERGY_AWARE_ENABLED = "energyAwareEnabled";
+    private static final String ENERGY_AFFECTS_LEARNING = "energyAffectsLearning";
+    private static final String ENERGY_THRESHOLD = "energyThreshold";
+    private static final String ENERGY_INIT = "energyInit";
+    private static final String ENERGY_INIT_DELTA = "energyInitDelta";
+    private static final String ENERGY_SCAN = "scanEnergy";
+    private static final String ENERGY_TRANSMIT = "transmitEnergy";
+    private static final String ENERGY_WARMUP = "energyWarmup";
 
     public CCRouting(Settings s) {
         super(s);
@@ -122,6 +147,38 @@ public class CCRouting extends QLearningRouter {
         if (ccSettings.contains(FUSION_WEIGHT_BUFFER)) {
             fusionWeightBuffer = ccSettings.getDouble(FUSION_WEIGHT_BUFFER);
         }
+        if (ccSettings.contains(FUSION_WEIGHT_ENERGY)) {
+            fusionWeightEnergy = ccSettings.getDouble(FUSION_WEIGHT_ENERGY);
+        }
+        if (ccSettings.contains(ENERGY_AWARE_ENABLED)) {
+            energyAwareEnabled = ccSettings.getBoolean(ENERGY_AWARE_ENABLED);
+        }
+        if (ccSettings.contains(ENERGY_AFFECTS_LEARNING)) {
+            energyAffectsLearning = ccSettings.getBoolean(ENERGY_AFFECTS_LEARNING);
+        }
+        if (ccSettings.contains(ENERGY_THRESHOLD)) {
+            energyThreshold = ccSettings.getDouble(ENERGY_THRESHOLD);
+        }
+        if (ccSettings.contains(ENERGY_INIT)) {
+            energyInit = ccSettings.getDouble(ENERGY_INIT);
+        }
+        if (ccSettings.contains(ENERGY_INIT_DELTA)) {
+            energyInitDelta = ccSettings.getDouble(ENERGY_INIT_DELTA);
+        }
+        if (ccSettings.contains(ENERGY_SCAN)) {
+            scanEnergy = ccSettings.getDouble(ENERGY_SCAN);
+        }
+        if (ccSettings.contains(ENERGY_TRANSMIT)) {
+            transmitEnergy = ccSettings.getDouble(ENERGY_TRANSMIT);
+        }
+        if (ccSettings.contains(ENERGY_WARMUP)) {
+            warmupTime = ccSettings.getDouble(ENERGY_WARMUP);
+        }
+        if (s.contains(SimScenario.SCAN_INTERVAL_S)) {
+            scanInterval = s.getDouble(SimScenario.SCAN_INTERVAL_S);
+        } else {
+            scanInterval = 0.0;
+        }
 
         Settings prophetSettings = new Settings(PROPHET_NS);
         if (prophetSettings.contains(SECONDS_IN_UNIT_S)) {
@@ -144,346 +201,60 @@ public class CCRouting extends QLearningRouter {
         } else {
             gamma = GAMMA;
         }
-        initPreds();
 
-        waitForReward = new LinkedHashMap<>();
-        candidateReceiver = new ArrayList<>();
-        dataContact = new ArrayList<>();
-        listOfSumDataContact = new ArrayList<>();
+        // Initialize maps and lists
+        this.preds = new HashMap<>();
+        this.visitCount = new HashMap<>();
+        this.waitForReward = new HashMap<>();
+        this.candidateReceiver = new ArrayList<>();
+        this.dataContact = new ArrayList<>();
+        this.listOfSumDataContact = new ArrayList<>();
+
+        initEnergy();
+        initPreds();
         initQL();
     }
 
     protected CCRouting(CCRouting r) {
         super(r);
-        updateInterval = r.updateInterval;
-        totalState = r.totalState;
-        totalAction = r.totalAction;
-        prophetEnabled = r.prophetEnabled;
-        prophetAllowNoInfo = r.prophetAllowNoInfo;
-        prophetMinDelta = r.prophetMinDelta;
-        bufferAwareEnabled = r.bufferAwareEnabled;
-        bufferFactorMin = r.bufferFactorMin;
-        fusionEnabled = r.fusionEnabled;
-        fusionWeightRL = r.fusionWeightRL;
-        fusionWeightProphet = r.fusionWeightProphet;
-        fusionWeightBuffer = r.fusionWeightBuffer;
-        discountGamma = r.discountGamma;
-        learningCoeff = r.learningCoeff;
-        secondsInTimeUnit = r.secondsInTimeUnit;
-        beta = r.beta;
-        pInit = r.pInit;
-        gamma = r.gamma;
-        initPreds();
+        this.updateInterval = r.updateInterval;
+        this.totalState = r.totalState;
+        this.totalAction = r.totalAction;
+        this.secondsInTimeUnit = r.secondsInTimeUnit;
+        this.beta = r.beta;
+        this.pInit = r.pInit;
+        this.gamma = r.gamma;
+        this.prophetEnabled = r.prophetEnabled;
+        this.prophetAllowNoInfo = r.prophetAllowNoInfo;
+        this.prophetMinDelta = r.prophetMinDelta;
+        this.bufferAwareEnabled = r.bufferAwareEnabled;
+        this.bufferFactorMin = r.bufferFactorMin;
+        this.discountGamma = r.discountGamma;
+        this.learningCoeff = r.learningCoeff;
+        this.fusionEnabled = r.fusionEnabled;
+        this.fusionWeightRL = r.fusionWeightRL;
+        this.fusionWeightProphet = r.fusionWeightProphet;
+        this.fusionWeightBuffer = r.fusionWeightBuffer;
+        this.fusionWeightEnergy = r.fusionWeightEnergy;
+        this.energyAwareEnabled = r.energyAwareEnabled;
+        this.energyAffectsLearning = r.energyAffectsLearning;
+        this.energyThreshold = r.energyThreshold;
+        this.energyInit = r.energyInit;
+        this.energyInitDelta = r.energyInitDelta;
+        this.scanEnergy = r.scanEnergy;
+        this.transmitEnergy = r.transmitEnergy;
+        this.warmupTime = r.warmupTime;
+        this.scanInterval = r.scanInterval;
 
-        waitForReward = new HashMap<>();
-        candidateReceiver = new ArrayList<>();
-        dataContact = new ArrayList<>();
-        listOfSumDataContact = new ArrayList<>();
+        // Safely clone current state from the prototype
+        this.preds = r.preds != null ? new HashMap<>(r.preds) : new HashMap<>();
+        this.visitCount = r.visitCount != null ? new HashMap<>(r.visitCount) : new HashMap<>();
+        this.waitForReward = r.waitForReward != null ? new HashMap<>(r.waitForReward) : new HashMap<>();
+        this.candidateReceiver = r.candidateReceiver != null ? new ArrayList<>(r.candidateReceiver) : new ArrayList<>();
+        this.dataContact = r.dataContact != null ? new ArrayList<>(r.dataContact) : new ArrayList<>();
+        this.listOfSumDataContact = r.listOfSumDataContact != null ? new ArrayList<>(r.listOfSumDataContact) : new ArrayList<>();
+        initEnergy();
         initQL();
-    }
-
-    protected void initQL() {
-        this.explorationPolicy = new EpsilonGreedyExploration(0.989);
-        this.ql = new QLearning(totalState, totalAction, this.explorationPolicy, false);
-        this.totalRewardWithNode = new LinkedHashMap<>();
-        this.visitCount = new LinkedHashMap<>();
-    }
-
-    private void initPreds() {
-        this.preds = new LinkedHashMap<>();
-        this.lastAgeUpdate = 0.0;
-    }
-
-    private void updateDeliveryPredFor(DTNHost host) {
-        double oldValue = getPredFor(host);
-        double newValue = oldValue + (1 - oldValue) * pInit;
-        preds.put(host, newValue);
-    }
-
-    public double getPredFor(DTNHost host) {
-        ageDeliveryPreds();
-        if (preds.containsKey(host)) {
-            return preds.get(host);
-        } else {
-            return 0;
-        }
-    }
-
-    protected Map<DTNHost, Double> getDeliveryPreds() {
-        ageDeliveryPreds();
-        return this.preds;
-    }
-
-    private void ageDeliveryPreds() {
-        if (secondsInTimeUnit <= 0) {
-            return;
-        }
-        double timeDiff = (SimClock.getTime() - this.lastAgeUpdate) / secondsInTimeUnit;
-
-        if (timeDiff == 0) {
-            return;
-        }
-
-        double mult = Math.pow(gamma, timeDiff);
-        for (Map.Entry<DTNHost, Double> e : preds.entrySet()) {
-            e.setValue(e.getValue() * mult);
-        }
-        this.lastAgeUpdate = SimClock.getTime();
-    }
-
-    private void updateTransitivePreds(DTNHost host) {
-        MessageRouter otherRouter = host.getRouter();
-        if (!(otherRouter instanceof CCRouting)) {
-            return;
-        }
-
-        double pForHost = getPredFor(host); 
-        Map<DTNHost, Double> othersPreds = ((CCRouting) otherRouter).getDeliveryPreds();
-
-        for (Map.Entry<DTNHost, Double> e : othersPreds.entrySet()) {
-            if (e.getKey() == getHost()) {
-                continue; 
-            }
-            double pOld = getPredFor(e.getKey()); 
-            double pNew = pOld + (1 - pOld) * pForHost * e.getValue() * beta;
-            preds.put(e.getKey(), pNew);
-        }
-    }
-
-    private boolean shouldForwardByBufferFactor(Message m, DTNHost other) {
-        if (!bufferAwareEnabled) {
-            return true;
-        }
-        MessageRouter router = other.getRouter();
-        int free = router.getFreeBufferSize();
-        if (free == Integer.MAX_VALUE) {
-            return true;
-        }
-        return free >= m.getSize();
-    }
-
-    private double getBufferFactor(DTNHost host) {
-        MessageRouter router = host.getRouter();
-        int cInit = router.getBufferSize();
-        if (cInit == Integer.MAX_VALUE || cInit <= 0) {
-            return 1.0;
-        }
-        
-        Map<Integer, Integer> counts = new HashMap<>();
-        for (Message m : router.getMessageCollection()) {
-            int size = m.getSize();
-            counts.put(size, counts.getOrDefault(size, 0) + 1);
-        }
-        long sum = 0;
-        for (Map.Entry<Integer, Integer> e : counts.entrySet()) {
-            sum += (long) e.getKey() * (long) e.getValue();
-        }
-        double bf = 1.0 - ((double) sum / (double) cInit);
-        if (bf < 0) bf = 0;
-        if (bf > 1) bf = 1;
-        return bf;
-    }
-
-    private double getFusionScore(Message m, DTNHost other) {
-        if (!fusionEnabled) {
-            return sumList(countInterestSimilarity(m, other));
-        }
-        List<Double> sims = countInterestSimilarity(m, other);
-        double rlScore = 0.0;
-        if (!sims.isEmpty()) {
-            rlScore = sumList(sims) / sims.size();
-        }
-        double prophetDelta = getOtherPredFor(m, other) - getPredFor(m.getTo());
-        if (prophetDelta < 0) prophetDelta = 0;
-        double bf = bufferAwareEnabled ? getBufferFactor(other) : 1.0;
-        return (fusionWeightRL * rlScore) + (fusionWeightProphet * prophetDelta) + (fusionWeightBuffer * bf);
-    }
-
-    private boolean shouldForwardByProphet(Message m, DTNHost other) {
-        if (!prophetEnabled) return true;
-        if (m.getTo() == other) return true;
-
-        double otherPred = getOtherPredFor(m, other);
-        double myPred = getPredFor(m.getTo());
-
-        if (otherPred == 0 && myPred == 0) return prophetAllowNoInfo;
-        return (otherPred - myPred) > prophetMinDelta;
-    }
-
-    private double getOtherPredFor(Message m, DTNHost other) {
-        if (!prophetEnabled) return 0;
-        MessageRouter otherRouter = other.getRouter();
-        if (otherRouter instanceof CCRouting) {
-            return ((CCRouting) otherRouter).getPredFor(m.getTo());
-        }
-        return 0;
-    }
-
-    @Override
-    public void changedConnection(Connection con) {
-        super.changedConnection(con);
-        DTNHost myHost = getHost();
-        DTNHost otherNode = con.getOtherNode(myHost);
-
-        if (con.isUp()) {
-            if (!this.waitForReward.containsKey(otherNode.getAddress())) {
-                this.waitForReward.put(otherNode.getAddress(), new Tuple<>(otherNode, new ArrayList<>()));
-            }
-
-            if (this.waitForReward.get(otherNode.getAddress()).getValue().isEmpty()) {
-                this.candidateReceiver.add(con);
-            }
-
-            if (prophetEnabled) {
-                updateDeliveryPredFor(otherNode);
-                updateTransitivePreds(otherNode);
-            }
-        } else {
-            this.totalContactTime += SimClock.getTime();
-        }
-    }
-
-    @Override
-    public Message messageTransferred(String id, DTNHost from) {
-        Message m = super.messageTransferred(id, from);
-        this.msgReceived++;
-        this.dataReceived += m.getSize();
-        return m;
-    }
-
-    @Override
-    protected void transferDone(Connection con) {
-        this.msgTransferred++;
-        this.dataTransferred += con.getMessage().getSize();
-    }
-
-    @Override
-    public void update() {
-        super.update();
-
-        if (isTransferring() || !canStartTransfer()) {
-            return;
-        }
-
-        if (exchangeDeliverableMessages() != null) {
-            return; 
-        }
-
-        tryOtherMessage();
-
-        if ((SimClock.getTime() - lastUpdateTime) >= updateInterval) {
-
-            lastUpdateTime = SimClock.getTime();
-
-            for (Map.Entry<Integer, Tuple<DTNHost, List<Integer>>> entry : waitForReward.entrySet()) {
-                if (entry.getKey() == newState && entry.getValue().getValue() != null && !entry.getValue().getValue().isEmpty()) {
-                    DTNHost other = entry.getValue().getKey();
-                    List<Integer> destinationsSent = entry.getValue().getValue();
-                    CCRouting othRouter = (CCRouting) other.getRouter();
-
-                    // === START UPDATE SESUAI ORQLCI ===
-                    int totalVisit = visitCount.get(other) != null ? visitCount.get(other) + 1 : 1;
-                    this.visitCount.put(other, totalVisit);
-
-                    // Ambil Encounter Probability & Buffer Factor
-                    double encounterProb = getPredFor(other); // (EP_x)
-                    double bf = bufferAwareEnabled ? getBufferFactor(other) : 1.0; // (BF_x)
-
-                    for (int destAddress : destinationsSent) { 
-                        // REWARD ORQLCI: 1 jika sampai di tujuan akhir, 0 jika ke perantara
-                        double reward = (other.getAddress() == destAddress) ? 1.0 : 0.0;
-                        
-                        int action = this.ql.GetAction(destAddress, entry.getKey(), this.waitForReward, true);
-                        this.ql.setLearningRate(totalVisit, learningCoeff);
-
-                        // Discount factor dihitung sesuai Persamaan (7) di paper
-                        this.ql.setDiscountFactorDynamic(discountGamma, bf);
-                        this.ql.UpdateState(destAddress, entry.getKey(), action, reward, newState, this, other);
-                    }
-                    // === END UPDATE SESUAI ORQLCI ===
-
-                    othRouter.dataReceived = 0;
-                    othRouter.dataTransferred = 0;
-                    othRouter.msgReceived = 0;
-                    othRouter.msgTransferred = 0;
-                }
-            }
-        }
-    }
-
-    private Tuple<Message, Connection> tryOtherMessage() {
-        List<Tuple<Message, Connection>> messages = new ArrayList<>();
-        List<Tuple<Message, Connection>> tempMessages = new ArrayList<>();
-
-        Collection<Message> msgCollection = getMessageCollection();
-
-        Iterator<Connection> it = candidateReceiver.iterator();
-        while (it.hasNext()) {
-            Connection con = it.next();
-            DTNHost other = con.getOtherNode(getHost());
-            CCRouting othRouter = (CCRouting) other.getRouter();
-
-            if (othRouter.isTransferring()) {
-                continue; 
-            }
-
-            for (Message m : msgCollection) {
-                if (othRouter.hasMessage(m.getId())) {
-                    continue; 
-                }
-                if (!shouldForwardByBufferFactor(m, other)) {
-                    continue;
-                }
-
-                int destinationAddress = m.getTo().getAddress();
-
-                // ORQLCI: Ambil keputusan forward dari Q-Table tujuan spesifik
-                newState = this.ql.GetAction(destinationAddress, other.getAddress(), this.waitForReward, false);
-
-                // Jika Q-Learning menyetujui, langsung kirim. (Pengecekan isSameInterest DIMATIKAN agar sesuai ORQLCI)
-                if (newState == other.getAddress()) {
-                    tempMessages.add(new Tuple<>(m, con));
-                }
-            }
-
-            if (!tempMessages.isEmpty()) {
-                // Diurutkan berdasarkan fusionScore atau sekadar antrian standar
-                Collections.sort(tempMessages, new InteresetSimilarityComparator());
-
-                messages.addAll(tempMessages);
-                tempMessages.clear();
-
-                List<Integer> sentDestinations = new ArrayList<>();
-                for (Tuple<Message, Connection> t : tempMessages) {
-                    sentDestinations.add(t.getKey().getTo().getAddress());
-                }
-                this.waitForReward.put(other.getAddress(), new Tuple<>(other, sentDestinations));
-                it.remove();
-                it = candidateReceiver.iterator();
-            }
-        }
-
-        if (messages.isEmpty()) {
-            return null;
-        }
-
-        return tryMessagesForConnected(messages);
-    }
-
-    private class InteresetSimilarityComparator implements Comparator<Tuple<Message, Connection>> {
-        public int compare(Tuple<Message, Connection> tuple1, Tuple<Message, Connection> tuple2) {
-            Message m1 = tuple1.getKey();
-            Message m2 = tuple2.getKey();
-            DTNHost h1 = tuple1.getValue().getOtherNode(getHost());
-            DTNHost h2 = tuple2.getValue().getOtherNode(getHost());
-            double s1 = getFusionScore(m1, h1);
-            double s2 = getFusionScore(m2, h2);
-            int cmp = Double.compare(s2, s1);
-            if (cmp != 0) {
-                return cmp;
-            }
-            return compareByQueueMode(m1, m2);
-        }
     }
 
     @Override
@@ -491,51 +262,211 @@ public class CCRouting extends QLearningRouter {
         return new CCRouting(this);
     }
 
-    public int getTotalDataRcv() { return this.dataReceived; }
-    public int getTotalDataTrf() { return this.dataTransferred; }
-    public int getMsgReceived() { return this.msgReceived; }
-    public int getMsgTransferred() { return this.msgTransferred; }
-    public double getCr() { return this.cr; }
-    public double getEma() { return this.ema; }
-
-    public void countCongestionRatio() {
-        double dataEachContact = (this.msgReceived + this.msgTransferred) / totalContactTime;
-        this.dataContact.add(dataEachContact);
-        double summedData = sumList(this.dataContact);
-        this.listOfSumDataContact.add(summedData);
-        this.cr = avgList(this.listOfSumDataContact);
+    protected void initQL() {
+        this.explorationPolicy = new EpsilonGreedyExploration(0.989);
+        this.ql = new QLearning(totalState, totalAction, this.explorationPolicy, false);
     }
 
-    public void countEma(double oLast) {
-        double emaPrev = this.ema;
-        double tempEma = oLast * SMOOTHING_FACTOR + emaPrev * (1 - SMOOTHING_FACTOR);
-        this.ema = tempEma;
+    private void initPreds() {
+        if (this.preds == null) this.preds = new HashMap<>();
     }
 
-    private double sumList(List<Double> lists) {
-        double total = 0.0;
-        for (double lst : lists) total += lst;
-        return total;
+    private void initEnergy() {
+        if (energyAwareEnabled) {
+            energyCapacity = energyInit;
+            if (energyInitDelta > 0 && energyRng != null) {
+                energyCapacity += energyRng.nextDouble() * energyInitDelta;
+            }
+            currentEnergy = energyCapacity;
+        }
     }
 
-    private double avgList(List<Double> lists) {
-        if (lists.isEmpty()) return 0;
-        double value = 0;
-        for (double i : lists) value += i;
-        return value / lists.size();
+    @Override
+    public void changedConnection(Connection con) {
+        super.changedConnection(con);
+        if (con.isUp()) {
+            candidateReceiver.add(con);
+            DTNHost other = con.getOtherNode(getHost());
+            updateDeliveryPredictability(other);
+        } else {
+            candidateReceiver.remove(con);
+        }
     }
 
-    public QLearning getQl() { return this.ql; }
+    private void updateDeliveryPredictability(DTNHost host) {
+        double amt = getPredFor(host);
+        preds.put(host, amt + (1 - amt) * pInit);
+        // Transitive property
+        for (Map.Entry<DTNHost, Double> entry : ((CCRouting) host.getRouter()).preds.entrySet()) {
+            DTNHost otherHost = entry.getKey();
+            if (otherHost == getHost()) continue;
+            double otherP = entry.getValue();
+            double myP = getPredFor(otherHost);
+            preds.put(otherHost, myP + (1 - myP) * amt * otherP * beta);
+        }
+    }
 
-    public void setDataReceiveTransmit(int value) {
-        this.dataReceived = value;
-        this.dataTransferred = value;
-        this.msgReceived = value;
-        this.msgTransferred = value;
+    private double getPredFor(DTNHost host) {
+        ageDeliveryPredictability();
+        return preds.containsKey(host) ? preds.get(host) : 0;
+    }
+
+    private void ageDeliveryPredictability() {
+        double time = SimClock.getTime();
+        double delta = time - lastAgeUpdate;
+        if (delta <= 0) return;
+        double units = delta / secondsInTimeUnit;
+        double factor = Math.pow(gamma, units);
+        for (Map.Entry<DTNHost, Double> entry : preds.entrySet()) {
+            entry.setValue(entry.getValue() * factor);
+        }
+        lastAgeUpdate = time;
+    }
+
+    @Override
+    public void update() {
+        super.update();
+        if (isTransferring() || !canStartTransfer()) return;
+        if (exchangeDeliverableMessages() != null) return;
+        tryAllMessagesToAllConnections();
+
+        // RL Training Cycle
+        double currentTime = SimClock.getTime();
+        if (currentTime - lastUpdateTime >= updateInterval) {
+            processRewards();
+            lastUpdateTime = currentTime;
+        }
+    }
+
+    private void processRewards() {
+        for (Integer msgId : new ArrayList<>(waitForReward.keySet())) {
+            Tuple<DTNHost, List<Integer>> tuple = waitForReward.get(msgId);
+            DTNHost other = tuple.getKey();
+            List<Integer> nextStates = tuple.getValue();
+
+            // Training logic
+            int myAddress = getHost().getAddress();
+            int otherAddress = other.getAddress();
+
+            int totalVisit = visitCount.containsKey(otherAddress) ? visitCount.get(otherAddress) + 1 : 1;
+            visitCount.put(otherAddress, totalVisit);
+
+            double bf = bufferAwareEnabled ? getBufferFactor(other) : 1.0;
+            double ef = energyAffectsLearning ? getEnergyLearningFactor() : 1.0;
+            ql.setDiscountFactorDynamic(discountGamma, bf, ef);
+            ql.setLearningRate(totalVisit, learningCoeff);
+
+            for (Integer destAddress : nextStates) {
+                double reward = calculateReward(destAddress, other);
+                int action = otherAddress; // Action is moving to 'other'
+                int nextState = otherAddress; // Simplification for ORQLCI
+                ql.UpdateState(destAddress, myAddress, action, reward, nextState, this, other);
+            }
+            waitForReward.remove(msgId);
+        }
+    }
+
+    private double calculateReward(int destAddr, DTNHost other) {
+        // Simplified reward based on delivery predictability + distance
+        double p = getPredFor(other);
+        return p; 
+    }
+
+    private double getBufferFactor(DTNHost other) {
+        double occupancy = other.getBufferOccupancy() / 100.0;
+        return Math.max(bufferFactorMin, 1.0 - occupancy);
+    }
+
+    private double getEnergyLearningFactor() {
+        if (!energyAwareEnabled) return 1.0;
+        double ratio = currentEnergy / energyCapacity;
+        return Math.max(0.1, ratio); // Floor at 0.1
+    }
+
+    @Override
+    protected Connection tryAllMessagesToAllConnections() {
+        List<Message> msgs = new ArrayList<>(getMessageCollection());
+        // Collections.sort(msgs, new MessageComparator()); // Message has no getPriority in this generic ONE
+        List<Connection> connections = new ArrayList<>(candidateReceiver);
+        Connection finalBestCon = null;
+
+        for (Message m : msgs) {
+            Connection bestCon = null;
+            double bestScore = -1;
+
+            for (Connection con : connections) {
+                DTNHost other = con.getOtherNode(getHost());
+                DTNHost lastHop = m.getHops().size() > 0 ? m.getHops().get(m.getHops().size() - 1) : m.getFrom();
+                if (m.getHopCount() > 0 && lastHop == other) continue;
+
+                double score = getFusionScore(m, other);
+                if (score > bestScore) {
+                    bestScore = score;
+                    bestCon = con;
+                    finalBestCon = con;
+                }
+            }
+
+            if (bestCon != null && bestScore > getFusionScore(m, getHost())) {
+                if (bestCon.isReadyForTransfer()) {
+                    if (startTransfer(m, bestCon) == RCV_OK) {
+                        // Mark for reward tracking
+                        int destAddr = m.getTo().getAddress();
+                        List<Integer> dlist = new ArrayList<>();
+                        dlist.add(destAddr);
+                        waitForReward.put(m.hashCode(), new Tuple<>(bestCon.getOtherNode(getHost()), dlist));
+                        break;
+                    }
+                }
+            }
+        }
+        return finalBestCon;
+    }
+
+    private double getFusionScore(Message m, DTNHost other) {
+        if (!fusionEnabled) {
+            List<Double> sims = countInterestSimilarity(m, other);
+            return sumList(sims);
+        }
+
+        int destAddr = m.getTo().getAddress();
+        int myAddr = other.getAddress();
+        
+        // RL Score
+        int action = myAddr; // best action estimate
+        double rlScore = ql.getQV(destAddr, myAddr, action);
+
+        // Prophet Score
+        double pScore = getPredFor(other);
+
+        // Buffer Score
+        double bScore = 1.0 - (other.getBufferOccupancy() / 100.0);
+
+        // Energy Score
+        double eScore = energyAwareEnabled ? (currentEnergy / energyCapacity) : 1.0;
+
+        return (fusionWeightRL * rlScore) + 
+               (fusionWeightProphet * pScore) + 
+               (fusionWeightBuffer * bScore) + 
+               (fusionWeightEnergy * eScore);
+    }
+
+    private double sumList(List<Double> list) {
+        double sum = 0;
+        for (Double d : list) sum += d;
+        return sum;
     }
 
     @Override
     public Map<Integer, Tuple<DTNHost, List<Integer>>> getMapWaitForReward() {
-        return this.waitForReward;
+        return waitForReward;
+    }
+
+    public double getCr() {
+        return cr;
+    }
+
+    public double getEma() {
+        return ema;
     }
 }

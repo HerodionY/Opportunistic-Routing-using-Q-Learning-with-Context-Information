@@ -44,8 +44,11 @@ public class ORQLCIPerformanceRouter extends QLearningRouter {
     private static final double P_INIT = 0.75;
     private static final double GAMMA_PROPHET = 0.98;
 
-    private Map<Integer, Tuple<DTNHost, Boolean>> waitForReward;
+    private Map<Integer, Tuple<DTNHost, List<Integer>>> waitForReward;
     private List<Connection> candidateReceiver;
+    private static final int GLOBAL_DEST = 0;
+    private static final int WAIT_SENTINEL = -1;
+    private double learningCoeff = 0.8;
 
     /* =======================
        SETTINGS NAMESPACE
@@ -56,6 +59,7 @@ public class ORQLCIPerformanceRouter extends QLearningRouter {
     private static final String TOTAL_ACTION = "totalAction";
     private static final String DROP_INTERVAL = "dropInterval";
     private static final String DROP_AMOUNT = "dropAmount";
+    private static final String LEARNING_COEFF = "learningCoeff";
     
     public ORQLCIPerformanceRouter(Settings s) {
         super(s);
@@ -65,6 +69,9 @@ public class ORQLCIPerformanceRouter extends QLearningRouter {
         totalAction = orSettings.getInt(TOTAL_ACTION);
         dropInterval = orSettings.contains(DROP_INTERVAL) ? orSettings.getDouble(DROP_INTERVAL) : 0;
         dropAmount = orSettings.contains(DROP_AMOUNT) ? orSettings.getInt(DROP_AMOUNT) : 0;
+        if (orSettings.contains(LEARNING_COEFF)) {
+            learningCoeff = orSettings.getDouble(LEARNING_COEFF);
+        }
         
         // PRoPHET defaults
         secondsInTimeUnit = 30;
@@ -163,16 +170,21 @@ public class ORQLCIPerformanceRouter extends QLearningRouter {
         super.changedConnection(con);
         DTNHost other = con.getOtherNode(getHost());
 
+        if (!con.isUp()) {
+            Double start = this.startTimestamps.get(other);
+            if (start != null) {
+                this.totalContactTime += (SimClock.getTime() - start);
+            }
+        }
+
         if (con.isUp()) {
             if(!this.waitForReward.containsKey(other.getAddress())) {
-                this.waitForReward.put(other.getAddress(), new Tuple<>(other, false));
+                this.waitForReward.put(other.getAddress(), new Tuple<>(other, new ArrayList<Integer>()));
             }
-            if(!this.waitForReward.get(other.getAddress()).getValue()) {
+            if(this.waitForReward.get(other.getAddress()).getValue().isEmpty()) {
                 this.candidateReceiver.add(con);
             }
             updateDeliveryPredFor(other);
-        } else {
-            this.totalContactTime += SimClock.getTime();
         }
     }
 
@@ -196,8 +208,8 @@ public class ORQLCIPerformanceRouter extends QLearningRouter {
         if ((SimClock.getTime() - lastUpdateTime) >= updateInterval) {
             lastUpdateTime = SimClock.getTime();
 
-            for(Map.Entry<Integer, Tuple<DTNHost, Boolean>> entry : waitForReward.entrySet()) {
-                if(entry.getKey() == newState && entry.getValue().getValue()) {
+            for(Map.Entry<Integer, Tuple<DTNHost, List<Integer>>> entry : waitForReward.entrySet()) {
+                if(entry.getKey() == newState && entry.getValue().getValue() != null && !entry.getValue().getValue().isEmpty()) {
                     DTNHost other = entry.getValue().getKey();
                     ORQLCIPerformanceRouter othRouter = (ORQLCIPerformanceRouter) other.getRouter();
 
@@ -213,10 +225,10 @@ public class ORQLCIPerformanceRouter extends QLearningRouter {
                     this.visitCount.put(other, totalVisit);
                     this.totalRewardWithNode.put(other, totalReward);
 
-                    int action = this.ql.GetAction(entry.getKey(), waitForReward, true);
-                    this.ql.setLearningRate(totalVisit);
+                    int action = this.ql.GetAction(GLOBAL_DEST, entry.getKey(), waitForReward, true);
+                    this.ql.setLearningRate(totalVisit, learningCoeff);
                     this.ql.setDiscountFactor(totalReward);
-                    this.ql.UpdateState(entry.getKey(), action, reward, newState, this, other);
+                    this.ql.UpdateState(GLOBAL_DEST, entry.getKey(), action, reward, newState, this, other);
 
                     othRouter.msgReceived = 0;
                     othRouter.msgTransferred = 0;
@@ -235,7 +247,7 @@ public class ORQLCIPerformanceRouter extends QLearningRouter {
             DTNHost other = con.getOtherNode(getHost());
             ORQLCIPerformanceRouter othRouter = (ORQLCIPerformanceRouter) other.getRouter();
 
-            newState = this.ql.GetAction(other.getAddress(), this.waitForReward, false);
+            newState = this.ql.GetAction(GLOBAL_DEST, other.getAddress(), this.waitForReward, false);
             
             if(newState == other.getAddress()) {
                 if (othRouter.isTransferring()) continue;
@@ -249,7 +261,9 @@ public class ORQLCIPerformanceRouter extends QLearningRouter {
                     }
                 }
                 
-                this.waitForReward.put(other.getAddress(), new Tuple<>(other, true));
+                List<Integer> waiting = new ArrayList<Integer>(1);
+                waiting.add(WAIT_SENTINEL);
+                this.waitForReward.put(other.getAddress(), new Tuple<>(other, waiting));
                 it.remove();
                 it = candidateReceiver.iterator();
             }
@@ -280,7 +294,7 @@ public class ORQLCIPerformanceRouter extends QLearningRouter {
     }
 
     @Override
-    public Map<Integer, Tuple<DTNHost, Boolean>> getMapWaitForReward() {
+    public Map<Integer, Tuple<DTNHost, List<Integer>>> getMapWaitForReward() {
         return this.waitForReward;
     }
 

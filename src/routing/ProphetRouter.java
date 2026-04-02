@@ -11,12 +11,17 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 
 import core.Connection;
 import core.DTNHost;
 import core.Message;
+import core.MessageListener;
+import core.ModuleCommunicationBus;
+import core.NetworkInterface;
 import core.Settings;
 import core.SimClock;
+import core.SimScenario;
 import core.Tuple;
 
 /**
@@ -45,6 +50,14 @@ public class ProphetRouter extends ActiveRouter {
 	 * Default value for setting is {@link #DEFAULT_BETA}.
 	 */
 	public static final String BETA_S = "beta";
+	/** Energy-awareness settings (optional) */
+	public static final String ENERGY_AWARE_ENABLED = "energyAwareEnabled";
+	public static final String ENERGY_THRESHOLD = "energyThreshold";
+	public static final String ENERGY_INIT = "energyInit";
+	public static final String ENERGY_INIT_DELTA = "energyInitDelta";
+	public static final String ENERGY_SCAN = "scanEnergy";
+	public static final String ENERGY_TRANSMIT = "transmitEnergy";
+	public static final String ENERGY_WARMUP = "energyWarmup";
 
 	/** the value of nrof seconds in time unit -setting */
 	private int secondsInTimeUnit;
@@ -55,6 +68,23 @@ public class ProphetRouter extends ActiveRouter {
 	private Map<DTNHost, Double> preds;
 	/** last delivery predictability update (sim)time */
 	private double lastAgeUpdate;
+
+	// Energy awareness
+	private boolean energyAwareEnabled = false;
+	private double energyThreshold = 0.10;
+	private double energyInit = 0.0;
+	private double energyInitDelta = 0.0;
+	private double scanEnergy = 0.0;
+	private double transmitEnergy = 0.0;
+	private double warmupTime = 0.0;
+	private double scanInterval = 0.0;
+	private double energyCapacity = 0.0;
+	private double currentEnergy = 0.0;
+	private double lastEnergyUpdate = 0.0;
+	private double lastScanUpdate = 0.0;
+	private ModuleCommunicationBus comBus = null;
+	private static Random energyRng = null;
+	private static final String ENERGY_CAPACITY_ID = "Energy.capacity";
 	
 	/**
 	 * Constructor. Creates a new message router based on the settings in
@@ -72,6 +102,34 @@ public class ProphetRouter extends ActiveRouter {
 			beta = DEFAULT_BETA;
 		}
 
+		if (prophetSettings.contains(ENERGY_AWARE_ENABLED)) {
+			energyAwareEnabled = prophetSettings.getBoolean(ENERGY_AWARE_ENABLED);
+		}
+		if (prophetSettings.contains(ENERGY_THRESHOLD)) {
+			energyThreshold = prophetSettings.getDouble(ENERGY_THRESHOLD);
+		}
+		if (prophetSettings.contains(ENERGY_INIT)) {
+			energyInit = prophetSettings.getDouble(ENERGY_INIT);
+		}
+		if (prophetSettings.contains(ENERGY_INIT_DELTA)) {
+			energyInitDelta = prophetSettings.getDouble(ENERGY_INIT_DELTA);
+		}
+		if (prophetSettings.contains(ENERGY_SCAN)) {
+			scanEnergy = prophetSettings.getDouble(ENERGY_SCAN);
+		}
+		if (prophetSettings.contains(ENERGY_TRANSMIT)) {
+			transmitEnergy = prophetSettings.getDouble(ENERGY_TRANSMIT);
+		}
+		if (prophetSettings.contains(ENERGY_WARMUP)) {
+			warmupTime = prophetSettings.getDouble(ENERGY_WARMUP);
+		}
+		if (s.contains(SimScenario.SCAN_INTERVAL_S)) {
+			scanInterval = s.getDouble(SimScenario.SCAN_INTERVAL_S);
+		} else {
+			scanInterval = 0.0;
+		}
+
+		initEnergy();
 		initPreds();
 	}
 
@@ -83,6 +141,18 @@ public class ProphetRouter extends ActiveRouter {
 		super(r);
 		this.secondsInTimeUnit = r.secondsInTimeUnit;
 		this.beta = r.beta;
+		this.energyAwareEnabled = r.energyAwareEnabled;
+		this.energyThreshold = r.energyThreshold;
+		this.energyInit = r.energyInit;
+		this.energyInitDelta = r.energyInitDelta;
+		this.scanEnergy = r.scanEnergy;
+		this.transmitEnergy = r.transmitEnergy;
+		this.warmupTime = r.warmupTime;
+		this.scanInterval = r.scanInterval;
+		this.comBus = null;
+		this.lastEnergyUpdate = 0.0;
+		this.lastScanUpdate = 0.0;
+		initEnergy();
 		initPreds();
 	}
 	
@@ -91,6 +161,104 @@ public class ProphetRouter extends ActiveRouter {
 	 */
 	private void initPreds() {
 		this.preds = new HashMap<DTNHost, Double>();
+	}
+
+	private void initEnergy() {
+		if (!energyAwareEnabled) {
+			energyCapacity = 0.0;
+			currentEnergy = 0.0;
+			return;
+		}
+
+		if (energyThreshold < 0.0) {
+			energyThreshold = 0.0;
+		} else if (energyThreshold > 1.0) {
+			energyThreshold = 1.0;
+		}
+		if (energyInit < 0.0) {
+			energyInit = 0.0;
+		}
+		if (energyInitDelta < 0.0) {
+			energyInitDelta = 0.0;
+		}
+		if (energyInitDelta > energyInit) {
+			energyInitDelta = energyInit;
+		}
+
+		double min = energyInit - energyInitDelta;
+		if (energyRng == null) {
+			energyRng = new Random((int)(energyInit + energyInitDelta));
+		}
+		if (energyInitDelta > 0.0) {
+			energyCapacity = min + (energyRng.nextDouble() * (energyInit - min));
+		} else {
+			energyCapacity = energyInit;
+		}
+		if (energyCapacity < 0.0) {
+			energyCapacity = 0.0;
+		}
+		currentEnergy = energyCapacity;
+	}
+
+	@Override
+	public void init(DTNHost host, List<MessageListener> mListeners) {
+		super.init(host, mListeners);
+		if (energyAwareEnabled) {
+			this.comBus = host.getComBus();
+			if (this.comBus != null) {
+				this.comBus.updateProperty(EnergyAwareRouter.ENERGY_VALUE_ID, this.currentEnergy);
+				this.comBus.updateProperty(ENERGY_CAPACITY_ID, this.energyCapacity);
+			}
+		}
+	}
+
+	private void reduceSendingAndScanningEnergy() {
+		if (!energyAwareEnabled) {
+			return;
+		}
+		double simTime = SimClock.getTime();
+
+		if (this.comBus == null) {
+			this.comBus = getHost().getComBus();
+			if (this.comBus != null) {
+				this.comBus.updateProperty(EnergyAwareRouter.ENERGY_VALUE_ID, this.currentEnergy);
+				this.comBus.updateProperty(ENERGY_CAPACITY_ID, this.energyCapacity);
+			}
+		}
+
+		if (this.currentEnergy <= 0.0) {
+			if (this.comBus != null) {
+				this.comBus.updateProperty(NetworkInterface.RANGE_ID, 0.0);
+			}
+			return;
+		}
+
+		if (simTime > this.lastEnergyUpdate && sendingConnections.size() > 0) {
+			reduceEnergy((simTime - this.lastEnergyUpdate) * this.transmitEnergy);
+		}
+		this.lastEnergyUpdate = simTime;
+
+		if (this.scanInterval > 0 && simTime > this.lastScanUpdate + this.scanInterval) {
+			reduceEnergy(this.scanEnergy);
+			this.lastScanUpdate = simTime;
+		}
+	}
+
+	private void reduceEnergy(double amount) {
+		if (SimClock.getTime() < this.warmupTime) {
+			return;
+		}
+		if (amount <= 0.0) {
+			return;
+		}
+
+		this.currentEnergy -= amount;
+		if (this.currentEnergy < 0.0) {
+			this.currentEnergy = 0.0;
+		}
+		if (this.comBus != null) {
+			this.comBus.updateProperty(EnergyAwareRouter.ENERGY_VALUE_ID, this.currentEnergy);
+		}
 	}
 
 	@Override
@@ -189,6 +357,7 @@ public class ProphetRouter extends ActiveRouter {
 	@Override
 	public void update() {
 		super.update();
+		reduceSendingAndScanningEnergy();
 		if (!canStartTransfer() ||isTransferring()) {
 			return; // nothing to transfer or is currently transferring 
 		}
@@ -226,8 +395,6 @@ public class ProphetRouter extends ActiveRouter {
 				if (othRouter.hasMessage(m.getId())) {
 					continue; // skip messages that the other one has
 				}
-
-        tryAllMessagesToAllConnections();
 
 				if (othRouter.getPredFor(m.getTo()) > getPredFor(m.getTo())) {
 					// the other node has higher probability of delivery

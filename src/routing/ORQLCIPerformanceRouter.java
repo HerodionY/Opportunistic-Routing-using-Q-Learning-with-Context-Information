@@ -44,7 +44,7 @@ public class ORQLCIPerformanceRouter extends QLearningRouter {
     private static final double P_INIT = 0.75;
     private static final double GAMMA_PROPHET = 0.98;
 
-    private Map<Integer, Tuple<DTNHost, Boolean>> waitForReward;
+    private Map<Integer, Tuple<DTNHost, List<Integer>>> waitForReward;
     private List<Connection> candidateReceiver;
 
     /* =======================
@@ -165,9 +165,9 @@ public class ORQLCIPerformanceRouter extends QLearningRouter {
 
         if (con.isUp()) {
             if(!this.waitForReward.containsKey(other.getAddress())) {
-                this.waitForReward.put(other.getAddress(), new Tuple<>(other, false));
+                this.waitForReward.put(other.getAddress(), new Tuple<>(other, new ArrayList<>()));
             }
-            if(!this.waitForReward.get(other.getAddress()).getValue()) {
+            if(this.waitForReward.get(other.getAddress()).getValue().isEmpty()) {
                 this.candidateReceiver.add(con);
             }
             updateDeliveryPredFor(other);
@@ -196,8 +196,8 @@ public class ORQLCIPerformanceRouter extends QLearningRouter {
         if ((SimClock.getTime() - lastUpdateTime) >= updateInterval) {
             lastUpdateTime = SimClock.getTime();
 
-            for(Map.Entry<Integer, Tuple<DTNHost, Boolean>> entry : waitForReward.entrySet()) {
-                if(entry.getKey() == newState && entry.getValue().getValue()) {
+            for(Map.Entry<Integer, Tuple<DTNHost, List<Integer>>> entry : waitForReward.entrySet()) {
+                if(entry.getKey() == newState && entry.getValue().getValue() != null && !entry.getValue().getValue().isEmpty()) {
                     DTNHost other = entry.getValue().getKey();
                     ORQLCIPerformanceRouter othRouter = (ORQLCIPerformanceRouter) other.getRouter();
 
@@ -213,10 +213,10 @@ public class ORQLCIPerformanceRouter extends QLearningRouter {
                     this.visitCount.put(other, totalVisit);
                     this.totalRewardWithNode.put(other, totalReward);
 
-                    int action = this.ql.GetAction(entry.getKey(), waitForReward, true);
-                    this.ql.setLearningRate(totalVisit);
+                    int action = this.ql.GetAction(entry.getKey(), entry.getKey(), waitForReward, true);
+                    this.ql.setLearningRate(totalVisit, 1.0);
                     this.ql.setDiscountFactor(totalReward);
-                    this.ql.UpdateState(entry.getKey(), action, reward, newState, this, other);
+                    this.ql.UpdateState(entry.getKey(), entry.getKey(), action, reward, newState, this, other);
 
                     othRouter.msgReceived = 0;
                     othRouter.msgTransferred = 0;
@@ -235,7 +235,7 @@ public class ORQLCIPerformanceRouter extends QLearningRouter {
             DTNHost other = con.getOtherNode(getHost());
             ORQLCIPerformanceRouter othRouter = (ORQLCIPerformanceRouter) other.getRouter();
 
-            newState = this.ql.GetAction(other.getAddress(), this.waitForReward, false);
+            newState = this.ql.GetAction(other.getAddress(), other.getAddress(), this.waitForReward, false);
             
             if(newState == other.getAddress()) {
                 if (othRouter.isTransferring()) continue;
@@ -249,7 +249,9 @@ public class ORQLCIPerformanceRouter extends QLearningRouter {
                     }
                 }
                 
-                this.waitForReward.put(other.getAddress(), new Tuple<>(other, true));
+                List<Integer> pending = new ArrayList<>();
+                pending.add(other.getAddress());
+                this.waitForReward.put(other.getAddress(), new Tuple<>(other, pending));
                 it.remove();
                 it = candidateReceiver.iterator();
             }
@@ -280,7 +282,7 @@ public class ORQLCIPerformanceRouter extends QLearningRouter {
     }
 
     @Override
-    public Map<Integer, Tuple<DTNHost, Boolean>> getMapWaitForReward() {
+    public Map<Integer, Tuple<DTNHost, List<Integer>>> getMapWaitForReward() {
         return this.waitForReward;
     }
 

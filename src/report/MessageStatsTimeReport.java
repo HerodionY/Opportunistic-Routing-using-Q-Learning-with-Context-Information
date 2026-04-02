@@ -20,7 +20,7 @@ import core.Settings;
  * This class outputs a log at defined intervals, making it easy to plot time-series lines.
  * 
  * Format:
- * sim_time delivery_prob overhead_ratio latency_avg dropped
+ * time delivery_prob overhead_ratio latency_avg dropped created delivered response_prob delivery_prob_pct response_prob_pct drop_rate_pct
  */
 public class MessageStatsTimeReport extends Report implements MessageListener, UpdateListener {
 	
@@ -84,7 +84,7 @@ public class MessageStatsTimeReport extends Report implements MessageListener, U
 		this.nrofDelivered = 0;
 		
 		// Tulis header agar mudah diparsing Python
-		write("time delivery_prob overhead_ratio latency_avg dropped created delivered");
+		write("time delivery_prob overhead_ratio latency_avg dropped created delivered response_prob delivery_prob_pct response_prob_pct drop_rate_pct");
 	}
 
 	@Override
@@ -102,7 +102,11 @@ public class MessageStatsTimeReport extends Report implements MessageListener, U
 
 	private void printStats() {
 		double deliveryProb = 0; 
+		double responseProb = 0;
 		double overHead = 0.0;	
+		double deliveryProbPct = 0;
+		double responseProbPct = 0;
+		double dropRatePct = 0;
 		
 		if (this.nrofCreated > 0) {
 			deliveryProb = (1.0 * this.nrofDelivered) / this.nrofCreated;
@@ -110,20 +114,32 @@ public class MessageStatsTimeReport extends Report implements MessageListener, U
 		if (this.nrofDelivered > 0) {
 			overHead = (1.0 * (this.nrofRelayed - this.nrofDelivered)) / this.nrofDelivered;
 		}
+		if (this.nrofResponseReqCreated > 0) {
+			responseProb = (1.0 * this.nrofResponseDelivered) / this.nrofResponseReqCreated;
+		}
+		deliveryProbPct = deliveryProb * 100.0;
+		responseProbPct = responseProb * 100.0;
+		if (this.nrofCreated > 0) {
+			dropRatePct = (1.0 * this.nrofDropped) / this.nrofCreated * 100.0;
+		}
 		
 		String latAvgStr = getAverage(this.latencies);
 		if (latAvgStr.equals(NAN)) {
 			latAvgStr = "0.0";
 		}
 
-		// Format output: time, delivery, overhead, latency, dropped, created, delivered
+		// Format output: time, delivery, overhead, latency, dropped, created, delivered, response_prob, delivery_prob_pct, response_prob_pct, drop_rate_pct
 		String output = format(SimClock.getTime()) + " " + 
 			format(deliveryProb) + " " + 
 			format(overHead) + " " + 
 			latAvgStr + " " +
 			this.nrofDropped + " " +
 			this.nrofCreated + " " +
-			this.nrofDelivered;
+			this.nrofDelivered + " " +
+			format(responseProb) + " " +
+			format(deliveryProbPct) + " " +
+			format(responseProbPct) + " " +
+			format(dropRatePct);
 
 		write(output);
 	}

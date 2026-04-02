@@ -71,7 +71,9 @@ MapBasedMovement.mapFile4 = data/shops.wkt
 
 ## Reports
 Report.nrofReports = 3
+Report.warmup = 0
 Report.reportDir = reports/skripsi2/RLOnly/
 Report.report1 = MessageStatsReport
 Report.report2 = MessageStatsTimeReport
 Report.report3 = PerformanceReport
+MessageStatsTimeReport.interval = 1000

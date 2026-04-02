@@ -5,7 +5,7 @@ import core.*;
 import reinforcement.*;
 
 // public class CCRouting extends ActiveRouter {
-public class CCRouting extends QLearningRouter {
+public class CCRoutingDamar extends QLearningRouter {
 
 	/** update interval diset dari settings */
 	private double updateInterval;
@@ -45,13 +45,17 @@ public class CCRouting extends QLearningRouter {
 	private double prophetMinDelta = 0.0;
 	private boolean bufferAwareEnabled = false;
 	private double bufferFactorMin = 0.0;
+	private boolean fusionEnabled = false;
+	private double fusionWeightRL = 0.0;
+	private double fusionWeightProphet = 0.0;
+	private double fusionWeightBuffer = 0.0;
 
 	/** 
 	 * Integer sebagai address node, 
 	 * jika status masih <CODE>pending</CODE> 
 	 * atau <CODE>true</CODE> maka tidak dikirim
 	 * */
-	private Map<Integer, Tuple<DTNHost, Boolean>> waitForReward;
+	private Map<Integer, Tuple<DTNHost, List<Integer>>> waitForReward;
 
 	/**
 	 * Candidate receivers
@@ -93,7 +97,7 @@ public class CCRouting extends QLearningRouter {
 	 * 
 	 * @param s
 	 */
-	public CCRouting(Settings s) {
+	public CCRoutingDamar(Settings s) {
 		super(s);
 		Settings ccSettings = new Settings(CCROUTING_NS);
 		updateInterval = ccSettings.getInt(UPDATE_INTERVAL);
@@ -165,7 +169,7 @@ public class CCRouting extends QLearningRouter {
 	 * 
 	 * @param r
 	 */
-	protected CCRouting(CCRouting r) {
+	protected CCRoutingDamar(CCRoutingDamar r) {
 		super(r);
 		updateInterval = r.updateInterval;
 		totalState = r.totalState;
@@ -248,13 +252,13 @@ public class CCRouting extends QLearningRouter {
 
 	private void updateTransitivePreds(DTNHost host) {
 		MessageRouter otherRouter = host.getRouter();
-		if (!(otherRouter instanceof CCRouting)) {
+		if (!(otherRouter instanceof CCRoutingDamar)) {
 			return;
 		}
 
 		double pForHost = getPredFor(host); // P(a,b)
 		Map<DTNHost, Double> othersPreds =
-			((CCRouting)otherRouter).getDeliveryPreds();
+			((CCRoutingDamar)otherRouter).getDeliveryPreds();
 
 		for (Map.Entry<DTNHost, Double> e : othersPreds.entrySet()) {
 			if (e.getKey() == getHost()) {
@@ -343,8 +347,8 @@ public class CCRouting extends QLearningRouter {
 			return 0;
 		}
 		MessageRouter otherRouter = other.getRouter();
-		if (otherRouter instanceof CCRouting) {
-			return ((CCRouting)otherRouter).getPredFor(m.getTo());
+		if (otherRouter instanceof CCRoutingDamar) {
+			return ((CCRoutingDamar)otherRouter).getPredFor(m.getTo());
 		}
 
 		return 0;
@@ -361,10 +365,10 @@ public class CCRouting extends QLearningRouter {
 		if (con.isUp()) {
 
 			if(!this.waitForReward.containsKey(otherNode.getAddress())) {
-				this.waitForReward.put(otherNode.getAddress(), new Tuple<>(otherNode, false));
+				this.waitForReward.put(otherNode.getAddress(), new Tuple<>(otherNode, new ArrayList<>()));
 			}
 
-			if(!this.waitForReward.get(otherNode.getAddress()).getValue().booleanValue()) {
+			if(this.waitForReward.get(otherNode.getAddress()).getValue().isEmpty()) {
 				this.candidateReceiver.add(con);
 			}
 
@@ -414,10 +418,10 @@ public class CCRouting extends QLearningRouter {
 
 			lastUpdateTime = SimClock.getTime();
 
-			for(Map.Entry<Integer,Tuple<DTNHost, Boolean>> entry: waitForReward.entrySet()) {
-				if(entry.getKey() == newState && entry.getValue().getValue().booleanValue()) {
+			for(Map.Entry<Integer,Tuple<DTNHost, List<Integer>>> entry: waitForReward.entrySet()) {
+				if(entry.getKey() == newState && entry.getValue().getValue() != null && !entry.getValue().getValue().isEmpty()) {
 					DTNHost other = entry.getValue().getKey();
-					CCRouting othRouter = (CCRouting) other.getRouter();
+					CCRoutingDamar othRouter = (CCRoutingDamar) other.getRouter();
 
 					othRouter.countCongestionRatio(); // hitung CR
 					othRouter.countEma(othRouter.cr); // hitung EMA
@@ -435,10 +439,10 @@ public class CCRouting extends QLearningRouter {
 					this.totalRewardWithNode.put(other, totalRewardForDiscFac);	
 				
 					// Q-Learning
-					int action = this.ql.GetAction(entry.getKey(), waitForReward, true);
-					this.ql.setLearningRate(totalVisit);
+					int action = this.ql.GetAction(entry.getKey(), entry.getKey(), waitForReward, true);
+					this.ql.setLearningRate(totalVisit, 1.0);
 					this.ql.setDiscountFactor(totalRewardForDiscFac );
-					this.ql.UpdateState(entry.getKey(), action, reward, newState, this, other);	
+					this.ql.UpdateState(entry.getKey(), entry.getKey(), action, reward, newState, this, other);	
 
 					othRouter.dataReceived = 0;
 					othRouter.dataTransferred = 0;
@@ -464,9 +468,9 @@ public class CCRouting extends QLearningRouter {
 		while (it.hasNext()) {
 			Connection con = it.next();
 			DTNHost other = con.getOtherNode(getHost());
-			CCRouting othRouter = (CCRouting) other.getRouter();
+			CCRoutingDamar othRouter = (CCRoutingDamar) other.getRouter();
 
-			newState = this.ql.GetAction(other.getAddress(), this.waitForReward, false);
+			newState = this.ql.GetAction(other.getAddress(), other.getAddress(), this.waitForReward, false);
 			
 			if(newState == other.getAddress()) {
 				if (othRouter.isTransferring()) {
@@ -494,7 +498,9 @@ public class CCRouting extends QLearningRouter {
 				messages.addAll(tempMessages);
 				tempMessages.clear();
 		
-				this.waitForReward.put(other.getAddress(), new Tuple<>(other, true));
+				List<Integer> pending = new ArrayList<>();
+				pending.add(other.getAddress());
+				this.waitForReward.put(other.getAddress(), new Tuple<>(other, pending));
 	
 				it.remove();
 				it = candidateReceiver.iterator();
@@ -534,8 +540,8 @@ public class CCRouting extends QLearningRouter {
 
 
 	@Override
-	public CCRouting replicate() {
-		return new CCRouting(this);
+	public CCRoutingDamar replicate() {
+		return new CCRoutingDamar(this);
 	}
 
 	public int getTotalDataRcv() {
@@ -618,7 +624,7 @@ public class CCRouting extends QLearningRouter {
 		this.msgTransferred = value;
 	}
 
-	public Map<Integer, Tuple<DTNHost, Boolean>> getMapWaitForReward() {
+	public Map<Integer, Tuple<DTNHost, List<Integer>>> getMapWaitForReward() {
 		return this.waitForReward;
 	}
 	

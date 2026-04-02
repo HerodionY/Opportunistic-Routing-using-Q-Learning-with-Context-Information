@@ -141,6 +141,9 @@ public class MessageStatsReport extends Report implements MessageListener {
 		double deliveryProb = 0; // delivery probability
 		double responseProb = 0; // request-response success probability
 		double overHead = Double.NaN;	// overhead ratio
+		double deliveryProbPct = 0;
+		double responseProbPct = 0;
+		double dropRatePct = 0;
 		
 		if (this.nrofCreated > 0) {
 			deliveryProb = (1.0 * this.nrofDelivered) / this.nrofCreated;
@@ -153,6 +156,11 @@ public class MessageStatsReport extends Report implements MessageListener {
 			responseProb = (1.0* this.nrofResponseDelivered) / 
 				this.nrofResponseReqCreated;
 		}
+		deliveryProbPct = deliveryProb * 100.0;
+		responseProbPct = responseProb * 100.0;
+		if (this.nrofCreated > 0) {
+			dropRatePct = (1.0 * this.nrofDropped) / this.nrofCreated * 100.0;
+		}
 		
 		String statsText = "created: " + this.nrofCreated + 
 			"\nstarted: " + this.nrofStarted + 
@@ -162,7 +170,10 @@ public class MessageStatsReport extends Report implements MessageListener {
 			"\nremoved: " + this.nrofRemoved +
 			"\ndelivered: " + this.nrofDelivered +
 			"\ndelivery_prob: " + format(deliveryProb) +
+			"\ndelivery_prob_pct: " + format(deliveryProbPct) +
 			"\nresponse_prob: " + format(responseProb) + 
+			"\nresponse_prob_pct: " + format(responseProbPct) + 
+			"\ndrop_rate_pct: " + format(dropRatePct) +
 			"\noverhead_ratio: " + format(overHead) + 
 			"\nlatency_avg: " + getAverage(this.latencies) +
 			"\nlatency_med: " + getMedian(this.latencies) + 

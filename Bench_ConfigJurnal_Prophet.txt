@@ -1,10 +1,9 @@
 #
-# Configuration for ORQLCI (Opportunistic Routing using Q-Learning & Context Information)
-# Berdasarkan Parameter Table 1 (Coefficient Determination)
+# Configuration for PROPHET (Table 1 - fair baseline)
 #
 
 ## Scenario settings
-Scenario.name = Bench-ORQLCI-Table1
+Scenario.name = Bench-Prophet-Table1
 Scenario.simulateConnections = true
 Scenario.updateInterval = 0.1
 # Simulation time 43200s
@@ -17,12 +16,12 @@ btInterface.transmitSpeed = 250k
 # Node communication radius 10m
 btInterface.transmitRange = 10
 
-# Total Nodes = 200 (Disesuaikan dari 6 grup agar total 200)
+# Total Nodes = 200
 Scenario.nrofHostGroups = 6
 
 ## Common settings for all groups
 Group.movementModel = ShortestPathMapBasedMovement
-Group.router = CCRouting
+Group.router = ProphetRouter
 # Node cache size 50MB
 Group.bufferSize = 50M
 Group.waitTime = 0, 120
@@ -34,7 +33,6 @@ Group.speed = 0.5, 1.5
 Group.msgTtl = 5
 
 ## Host Groups Distribution (Total 200 Nodes)
-# Group 1-3 (Pedestrians & Walkers)
 Group1.groupID = p
 Group1.nrofHosts = 60
 Group2.groupID = c
@@ -43,7 +41,7 @@ Group2.speed = 2.7, 13.9
 Group3.groupID = w
 Group3.nrofHosts = 68
 
-# Group 4-6 (Trams/Bus sebagai infrastruktur pendukung)
+# Tram Groups (Infrastruktur)
 Group4.groupID = t
 Group4.nrofHosts = 4
 Group4.movementModel = MapRouteMovement
@@ -59,19 +57,11 @@ Group6.nrofHosts = 4
 Group6.movementModel = MapRouteMovement
 Group6.routeFile = data/tram10.wkt
 
-## CCRouting Q-Learning Parameters
-# Learning coefficient (Alpha) = 0.8
-# Discount factor (Gamma) = 0.6
-CCRouting.updateInterval = 100
-CCRouting.totalState = 200
-CCRouting.totalAction = 200
-# Sesuai data: peak value 0.658 dicapai dengan koefisien di bawah:
-CCRouting.fusionWeightRL = 0.7
-CCRouting.fusionWeightProphet = 0.2
-CCRouting.fusionWeightBuffer = 0.1
-CCRouting.prophetEnabled = true
-CCRouting.fusionEnabled = true
-CCRouting.bufferAwareEnabled = true
+## PROPHET settings
+ProphetRouter.beta = 0.25
+ProphetRouter.pInit = 0.75
+ProphetRouter.gamma = 0.98
+ProphetRouter.secondsInTimeUnit = 30
 
 ## Message creation parameters (Table 1)
 Events.nrof = 1
@@ -100,7 +90,7 @@ MapBasedMovement.mapFile4 = data/shops.wkt
 ## Reports
 Report.nrofReports = 3
 Report.warmup = 0
-Report.reportDir = reports/skripsi2/ORQLCI/
+Report.reportDir = reports/skripsi2/prophet/
 Report.report1 = MessageStatsReport
 Report.report2 = MessageStatsTimeReport
 Report.report3 = PerformanceReport

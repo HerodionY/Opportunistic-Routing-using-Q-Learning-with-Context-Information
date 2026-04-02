@@ -94,16 +94,19 @@ public class PerformanceReport extends Report implements MessageListener {
 
         double deliveryRatio = 0;
         double overheadRatio = Double.NaN;
+        double deliveryRatioPct = 0;
 
         if (nrofCreated > 0) {
             deliveryRatio = (1.0 * nrofDelivered) / nrofCreated;
         }
+        deliveryRatioPct = deliveryRatio * 100.0;
 
         if (nrofDelivered > 0) {
             overheadRatio = (1.0 * (nrofRelayed - nrofDelivered)) / nrofDelivered;
         }
 
         write("Delivery Ratio: " + format(deliveryRatio));
+        write("Delivery Ratio (%): " + format(deliveryRatioPct));
         write("Overhead Ratio: " + format(overheadRatio));
         write("Average Latency: " + getAverage(latencies));
         

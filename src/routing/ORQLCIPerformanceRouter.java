@@ -172,7 +172,10 @@ public class ORQLCIPerformanceRouter extends QLearningRouter {
             }
             updateDeliveryPredFor(other);
         } else {
-            this.totalContactTime += SimClock.getTime();
+            Double startTime = this.startTimestamps.get(other);
+            if (startTime != null) {
+                this.totalContactTime += (SimClock.getTime() - startTime);
+            }
         }
     }
 

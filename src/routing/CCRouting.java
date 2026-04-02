@@ -325,7 +325,7 @@ public class CCRouting extends QLearningRouter {
         DTNHost myHost = getHost();
         DTNHost otherNode = con.getOtherNode(myHost);
 
-        if (con.isUp()) {
+            if (con.isUp()) {
             if (!this.waitForReward.containsKey(otherNode.getAddress())) {
                 this.waitForReward.put(otherNode.getAddress(), new Tuple<>(otherNode, new ArrayList<>()));
             }
@@ -339,7 +339,10 @@ public class CCRouting extends QLearningRouter {
                 updateTransitivePreds(otherNode);
             }
         } else {
-            this.totalContactTime += SimClock.getTime();
+            Double startTime = this.startTimestamps.get(otherNode);
+            if (startTime != null) {
+                this.totalContactTime += (SimClock.getTime() - startTime);
+            }
         }
     }
 
@@ -450,13 +453,12 @@ public class CCRouting extends QLearningRouter {
                 // Diurutkan berdasarkan fusionScore atau sekadar antrian standar
                 Collections.sort(tempMessages, new InteresetSimilarityComparator());
 
-                messages.addAll(tempMessages);
-                tempMessages.clear();
-
                 List<Integer> sentDestinations = new ArrayList<>();
                 for (Tuple<Message, Connection> t : tempMessages) {
                     sentDestinations.add(t.getKey().getTo().getAddress());
                 }
+                messages.addAll(tempMessages);
+                tempMessages.clear();
                 this.waitForReward.put(other.getAddress(), new Tuple<>(other, sentDestinations));
                 it.remove();
                 it = candidateReceiver.iterator();

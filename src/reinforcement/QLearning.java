@@ -217,11 +217,11 @@ public class QLearning{
     // }
 
     /**
-     * Dynamic discount factor using contextual info. (ORQLCI Paper Equation 7)
-     * gamma_d(s,x) = gamma * BF_x
+     * Dynamic discount factor using contextual info from the proposal.
+     * gamma_d(s,x) = gamma * BF_x * EF_x
      */
-    public void setDiscountFactorDynamic(double baseGamma, double bufferFactor) {
-        double g = baseGamma * bufferFactor;
+    public void setDiscountFactorDynamic(double baseGamma, double bufferFactor, double energyFactor) {
+        double g = baseGamma * bufferFactor * energyFactor;
         
         if (g > 1.0) {
             g = 1.0;
@@ -278,9 +278,11 @@ public class QLearning{
          double[] previousActionEstimations = qvalues.get(destination)[previousState];
         // ===================================================================================
         
-        // update expexted summary reward of the previous state
+        // Proposal-aligned update:
+        // Q_d(s,x) <- (1-a)Q_d(s,x) + a * gamma * BF_x * EF_x * maxQ_d(x,y) * P(x,y)
+        // Here, discountFactor carries (gamma * BF_x * EF_x) and reward carries P(x,y).
         previousActionEstimations[action] *= (1.0 - learningRate);
-        previousActionEstimations[action] += (learningRate * (reward + discountFactor * maxNextExpectedReward));
+        previousActionEstimations[action] += (learningRate * (discountFactor * maxNextExpectedReward * reward));
 
         // reset data receive & transmit => 0
         // router.setDataReceiveTransmit(0);
@@ -292,7 +294,7 @@ public class QLearning{
         Map<Integer, Tuple<DTNHost, List<Integer>>> waitForReward = router.getMapWaitForReward();
         
         // UBAH false MENJADI new ArrayList<Integer>() sebagai penanda status available
-        waitForReward.put(previousState, new Tuple<>(pendingHost, new ArrayList<Integer>()));
+        waitForReward.put(pendingHost.getAddress(), new Tuple<>(pendingHost, new ArrayList<Integer>()));
     }
 
     public double getQV(int destination, int state, int action) {

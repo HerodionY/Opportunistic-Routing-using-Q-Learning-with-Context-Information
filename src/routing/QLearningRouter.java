@@ -336,6 +336,7 @@ public abstract class QLearningRouter extends ActiveRouter {
 			if(itTop.next().equals(topicNode.get(i))) {
 				valInterest.add(weightNode.get(i));
 			} 
+			i++;
 		}
 
 		return valInterest;

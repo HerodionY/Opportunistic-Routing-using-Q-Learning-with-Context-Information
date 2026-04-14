@@ -1,18 +1,20 @@
 package routing;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import core.DTNHost;
 import core.Settings;
 import core.Tuple;
 import core.Connection;
+import java.util.ArrayList;
 
 /**
  * A standard Q-Learning router without social or congestion context information.
  * It uses the base QLearningRouter functionality for basic node encounter learning.
  */
 public class StandardQLearningRouter extends QLearningRouter {
-    private Map<Integer, Tuple<DTNHost, Boolean>> waitForReward;
+    private Map<Integer, Tuple<DTNHost, List<Integer>>> waitForReward;
 
     public StandardQLearningRouter(Settings s) {
         super(s);
@@ -30,7 +32,7 @@ public class StandardQLearningRouter extends QLearningRouter {
     }
 
     @Override
-    public Map<Integer, Tuple<DTNHost, Boolean>> getMapWaitForReward() {
+    public Map<Integer, Tuple<DTNHost, List<Integer>>> getMapWaitForReward() {
         return this.waitForReward;
     }
 
@@ -40,7 +42,7 @@ public class StandardQLearningRouter extends QLearningRouter {
         DTNHost otherNode = con.getOtherNode(getHost());
         if (con.isUp()) {
             if(!this.waitForReward.containsKey(otherNode.getAddress())) {
-                this.waitForReward.put(otherNode.getAddress(), new Tuple<>(otherNode, false));
+                this.waitForReward.put(otherNode.getAddress(), new Tuple<>(otherNode, new ArrayList<Integer>()));
             }
         }
     }

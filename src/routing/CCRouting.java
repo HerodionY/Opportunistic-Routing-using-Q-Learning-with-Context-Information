@@ -1,14 +1,32 @@
 package routing;
 
-import core.*;
-import java.util.*;
-import reinforcement.*;
+import core.Connection;
+import core.DTNHost;
+import core.Message;
+import core.ModuleCommunicationBus;
+import core.NetworkInterface;
+import core.Settings;
+import core.SimClock;
+import core.Tuple;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Random;
+import reinforcement.EpsilonGreedyExploration;
+import reinforcement.IExplorationPolicy;
+import reinforcement.QLearning;
 
 public class CCRouting extends QLearningRouter {
 
     private double updateInterval;
 
-    // Variable untuk Congestion Ratio (Tetap dipertahankan untuk metrik/log, tapi tidak dipakai di Q-Learning)
+    // Variable untuk Congestion Ratio (tetap dipertahankan untuk metrik/log)
     private int msgReceived = 0;
     private int msgTransferred = 0;
     private int dataReceived = 0;
@@ -26,7 +44,6 @@ public class CCRouting extends QLearningRouter {
     private IExplorationPolicy explorationPolicy;
     private int totalState;
     private int totalAction;
-    private Map<DTNHost, Double> totalRewardWithNode;
     private Map<DTNHost, Integer> visitCount;
     private int newState = 0;
 
@@ -41,19 +58,36 @@ public class CCRouting extends QLearningRouter {
     private boolean prophetAllowNoInfo = true;
     private double prophetMinDelta = 0.0;
     private boolean bufferAwareEnabled = false;
-    private double bufferFactorMin = 0.0;
     private boolean fusionEnabled = false;
     private double fusionWeightRL = 0.0;
     private double fusionWeightProphet = 0.0;
     private double fusionWeightBuffer = 0.0;
+    private double fusionWeightEnergy = 0.0;
+
+    // Energy-aware context (proposal extension)
+    public static final String ENERGY_VALUE_ID = "Energy.value";
+    public static final String ENERGY_CAPACITY_ID = "Energy.capacity";
+    private boolean energyAwareEnabled = true;
+    private double[] initialEnergy = new double[] {1000.0};
+    private double initialEnergyCapacity = 1000.0;
+    private double currentEnergy = 1000.0;
+    private double scanEnergy = 0.1;
+    private double transmitEnergy = 0.1;
+    private double energyWarmup = 0.0;
+    private double energyCriticalThreshold = 0.10;
+    private double energyScanInterval = 1.0;
+    private double lastScanUpdate = 0.0;
+    private double lastEnergyUpdate = 0.0;
+    private ModuleCommunicationBus comBus;
+    private boolean radioOffByEnergy = false;
+    private static Random energyRng = null;
 
     // Learning parameters
     private double discountGamma = 0.6;
     private double learningCoeff = 0.8;
 
-    // Map untuk menyimpan status pending (dikirim ke tujuan mana saja) - Format ORQLCI
+    // Map status pending (dikirim ke tujuan mana saja)
     private Map<Integer, Tuple<DTNHost, List<Integer>>> waitForReward;
-
     private List<Connection> candidateReceiver;
 
     private static final String CCROUTING_NS = "CCRouting";
@@ -74,13 +108,22 @@ public class CCRouting extends QLearningRouter {
     private static final String PROPHET_ALLOW_NOINFO = "prophetAllowNoInfo";
     private static final String PROPHET_MIN_DELTA = "prophetMinDelta";
     private static final String BUFFER_AWARE_ENABLED = "bufferAwareEnabled";
-    private static final String BUFFER_FACTOR_MIN = "bufferFactorMin";
     private static final String FUSION_ENABLED = "fusionEnabled";
     private static final String FUSION_WEIGHT_RL = "fusionWeightRL";
     private static final String FUSION_WEIGHT_PROPHET = "fusionWeightProphet";
     private static final String FUSION_WEIGHT_BUFFER = "fusionWeightBuffer";
+    private static final String FUSION_WEIGHT_ENERGY = "fusionWeightEnergy";
     private static final String DISCOUNT_GAMMA_S = "discountGamma";
     private static final String LEARNING_COEFF_S = "learningCoeff";
+
+    // Energy settings
+    private static final String ENERGY_AWARE_ENABLED_S = "energyAwareEnabled";
+    private static final String INITIAL_ENERGY_S = "initialEnergy";
+    private static final String SCAN_ENERGY_S = "scanEnergy";
+    private static final String TRANSMIT_ENERGY_S = "transmitEnergy";
+    private static final String ENERGY_WARMUP_S = "energyWarmup";
+    private static final String ENERGY_THRESHOLD_S = "energyCriticalThreshold";
+    private static final String ENERGY_SCAN_INTERVAL_S = "energyScanInterval";
 
     public CCRouting(Settings s) {
         super(s);
@@ -101,9 +144,6 @@ public class CCRouting extends QLearningRouter {
         if (ccSettings.contains(BUFFER_AWARE_ENABLED)) {
             bufferAwareEnabled = ccSettings.getBoolean(BUFFER_AWARE_ENABLED);
         }
-        if (ccSettings.contains(BUFFER_FACTOR_MIN)) {
-            bufferFactorMin = ccSettings.getDouble(BUFFER_FACTOR_MIN);
-        }
         if (ccSettings.contains(DISCOUNT_GAMMA_S)) {
             discountGamma = ccSettings.getDouble(DISCOUNT_GAMMA_S);
         }
@@ -122,6 +162,32 @@ public class CCRouting extends QLearningRouter {
         if (ccSettings.contains(FUSION_WEIGHT_BUFFER)) {
             fusionWeightBuffer = ccSettings.getDouble(FUSION_WEIGHT_BUFFER);
         }
+        if (ccSettings.contains(FUSION_WEIGHT_ENERGY)) {
+            fusionWeightEnergy = ccSettings.getDouble(FUSION_WEIGHT_ENERGY);
+        }
+
+        if (ccSettings.contains(ENERGY_AWARE_ENABLED_S)) {
+            energyAwareEnabled = ccSettings.getBoolean(ENERGY_AWARE_ENABLED_S);
+        }
+        if (ccSettings.contains(INITIAL_ENERGY_S)) {
+            initialEnergy = ccSettings.getCsvDoubles(INITIAL_ENERGY_S);
+        }
+        if (ccSettings.contains(SCAN_ENERGY_S)) {
+            scanEnergy = ccSettings.getDouble(SCAN_ENERGY_S);
+        }
+        if (ccSettings.contains(TRANSMIT_ENERGY_S)) {
+            transmitEnergy = ccSettings.getDouble(TRANSMIT_ENERGY_S);
+        }
+        if (ccSettings.contains(ENERGY_WARMUP_S)) {
+            energyWarmup = ccSettings.getDouble(ENERGY_WARMUP_S);
+        }
+        if (ccSettings.contains(ENERGY_THRESHOLD_S)) {
+            energyCriticalThreshold = ccSettings.getDouble(ENERGY_THRESHOLD_S);
+        }
+        if (ccSettings.contains(ENERGY_SCAN_INTERVAL_S)) {
+            energyScanInterval = ccSettings.getDouble(ENERGY_SCAN_INTERVAL_S);
+        }
+        setEnergy(initialEnergy);
 
         Settings prophetSettings = new Settings(PROPHET_NS);
         if (prophetSettings.contains(SECONDS_IN_UNIT_S)) {
@@ -162,20 +228,28 @@ public class CCRouting extends QLearningRouter {
         prophetAllowNoInfo = r.prophetAllowNoInfo;
         prophetMinDelta = r.prophetMinDelta;
         bufferAwareEnabled = r.bufferAwareEnabled;
-        bufferFactorMin = r.bufferFactorMin;
         fusionEnabled = r.fusionEnabled;
         fusionWeightRL = r.fusionWeightRL;
         fusionWeightProphet = r.fusionWeightProphet;
         fusionWeightBuffer = r.fusionWeightBuffer;
+        fusionWeightEnergy = r.fusionWeightEnergy;
         discountGamma = r.discountGamma;
         learningCoeff = r.learningCoeff;
         secondsInTimeUnit = r.secondsInTimeUnit;
         beta = r.beta;
         pInit = r.pInit;
         gamma = r.gamma;
+        energyAwareEnabled = r.energyAwareEnabled;
+        initialEnergy = r.initialEnergy;
+        scanEnergy = r.scanEnergy;
+        transmitEnergy = r.transmitEnergy;
+        energyWarmup = r.energyWarmup;
+        energyCriticalThreshold = r.energyCriticalThreshold;
+        energyScanInterval = r.energyScanInterval;
+        setEnergy(initialEnergy);
         initPreds();
 
-        waitForReward = new HashMap<>();
+        waitForReward = new LinkedHashMap<>();
         candidateReceiver = new ArrayList<>();
         dataContact = new ArrayList<>();
         listOfSumDataContact = new ArrayList<>();
@@ -185,13 +259,98 @@ public class CCRouting extends QLearningRouter {
     protected void initQL() {
         this.explorationPolicy = new EpsilonGreedyExploration(0.989);
         this.ql = new QLearning(totalState, totalAction, this.explorationPolicy, false);
-        this.totalRewardWithNode = new LinkedHashMap<>();
         this.visitCount = new LinkedHashMap<>();
     }
 
     private void initPreds() {
         this.preds = new LinkedHashMap<>();
         this.lastAgeUpdate = 0.0;
+    }
+
+    private void setEnergy(double[] range) {
+        if (range == null || range.length == 0) {
+            this.currentEnergy = 1000.0;
+            this.initialEnergyCapacity = 1000.0;
+            return;
+        }
+        if (range.length == 1) {
+            this.currentEnergy = range[0];
+            this.initialEnergyCapacity = range[0];
+            return;
+        }
+        if (energyRng == null) {
+            energyRng = new Random((int) (range[0] + range[1]));
+        }
+        this.currentEnergy = range[0] + energyRng.nextDouble() * (range[1] - range[0]);
+        this.initialEnergyCapacity = range[1];
+    }
+
+    private void initEnergyBusIfNeeded() {
+        if (!energyAwareEnabled) {
+            return;
+        }
+        if (this.comBus == null) {
+            this.comBus = getHost().getComBus();
+        }
+
+        if (this.comBus.getProperty(ENERGY_VALUE_ID) == null) {
+            this.comBus.addProperty(ENERGY_VALUE_ID, this.currentEnergy);
+        } else {
+            this.comBus.updateProperty(ENERGY_VALUE_ID, this.currentEnergy);
+        }
+
+        if (this.comBus.getProperty(ENERGY_CAPACITY_ID) == null) {
+            this.comBus.addProperty(ENERGY_CAPACITY_ID, this.initialEnergyCapacity);
+        } else {
+            this.comBus.updateProperty(ENERGY_CAPACITY_ID, this.initialEnergyCapacity);
+        }
+    }
+
+    private void reduceEnergy(double amount) {
+        if (!energyAwareEnabled || amount <= 0) {
+            return;
+        }
+        if (SimClock.getTime() < this.energyWarmup) {
+            return;
+        }
+
+        initEnergyBusIfNeeded();
+        this.currentEnergy -= amount;
+        if (this.currentEnergy < 0) {
+            this.currentEnergy = 0;
+        }
+        this.comBus.updateProperty(ENERGY_VALUE_ID, this.currentEnergy);
+
+        if (this.currentEnergy <= 0 && !this.radioOffByEnergy) {
+            this.comBus.updateProperty(NetworkInterface.RANGE_ID, 0.0);
+            this.radioOffByEnergy = true;
+        }
+    }
+
+    private void updateEnergyConsumption() {
+        if (!energyAwareEnabled) {
+            return;
+        }
+
+        initEnergyBusIfNeeded();
+        double simTime = SimClock.getTime();
+        if (this.currentEnergy <= 0) {
+            if (!this.radioOffByEnergy) {
+                this.comBus.updateProperty(NetworkInterface.RANGE_ID, 0.0);
+                this.radioOffByEnergy = true;
+            }
+            return;
+        }
+
+        if (simTime > this.lastEnergyUpdate && this.sendingConnections != null && this.sendingConnections.size() > 0) {
+            reduceEnergy((simTime - this.lastEnergyUpdate) * this.transmitEnergy);
+        }
+        this.lastEnergyUpdate = simTime;
+
+        if (simTime >= this.lastScanUpdate + this.energyScanInterval) {
+            reduceEnergy(this.scanEnergy);
+            this.lastScanUpdate = simTime;
+        }
     }
 
     private void updateDeliveryPredFor(DTNHost host) {
@@ -237,14 +396,14 @@ public class CCRouting extends QLearningRouter {
             return;
         }
 
-        double pForHost = getPredFor(host); 
+        double pForHost = getPredFor(host);
         Map<DTNHost, Double> othersPreds = ((CCRouting) otherRouter).getDeliveryPreds();
 
         for (Map.Entry<DTNHost, Double> e : othersPreds.entrySet()) {
             if (e.getKey() == getHost()) {
-                continue; 
+                continue;
             }
-            double pOld = getPredFor(e.getKey()); 
+            double pOld = getPredFor(e.getKey());
             double pNew = pOld + (1 - pOld) * pForHost * e.getValue() * beta;
             preds.put(e.getKey(), pNew);
         }
@@ -268,7 +427,7 @@ public class CCRouting extends QLearningRouter {
         if (cInit == Integer.MAX_VALUE || cInit <= 0) {
             return 1.0;
         }
-        
+
         Map<Integer, Integer> counts = new HashMap<>();
         for (Message m : router.getMessageCollection()) {
             int size = m.getSize();
@@ -279,9 +438,69 @@ public class CCRouting extends QLearningRouter {
             sum += (long) e.getKey() * (long) e.getValue();
         }
         double bf = 1.0 - ((double) sum / (double) cInit);
-        if (bf < 0) bf = 0;
-        if (bf > 1) bf = 1;
+        if (bf < 0) {
+            bf = 0;
+        }
+        if (bf > 1) {
+            bf = 1;
+        }
         return bf;
+    }
+
+    private double getEnergyFactorFromHost(DTNHost host) {
+        Object currentObj = host.getComBus().getProperty(ENERGY_VALUE_ID);
+        Object capObj = host.getComBus().getProperty(ENERGY_CAPACITY_ID);
+        if (!(currentObj instanceof Double) || !(capObj instanceof Double)) {
+            return 1.0;
+        }
+        double cur = (Double) currentObj;
+        double cap = (Double) capObj;
+        if (cap <= 0) {
+            return 0.0;
+        }
+        double ef = cur / cap;
+        if (ef < 0) {
+            ef = 0;
+        }
+        if (ef > 1) {
+            ef = 1;
+        }
+        return ef;
+    }
+
+    private double getEnergyFactor(DTNHost host) {
+        if (host == getHost()) {
+            return getSelfEnergyFactor();
+        }
+        return getEnergyFactorFromHost(host);
+    }
+
+    public double getSelfEnergyFactor() {
+        if (!energyAwareEnabled || initialEnergyCapacity <= 0) {
+            return 1.0;
+        }
+        double ef = currentEnergy / initialEnergyCapacity;
+        if (ef < 0) {
+            ef = 0;
+        }
+        if (ef > 1) {
+            ef = 1;
+        }
+        return ef;
+    }
+
+    public boolean isDeadNode() {
+        return energyAwareEnabled && currentEnergy <= 0;
+    }
+
+    private boolean shouldForwardByEnergy(Message m, DTNHost other) {
+        if (!energyAwareEnabled) {
+            return true;
+        }
+        if (m.getTo() == other) {
+            return true;
+        }
+        return getEnergyFactor(other) > energyCriticalThreshold;
     }
 
     private double getFusionScore(Message m, DTNHost other) {
@@ -294,29 +513,51 @@ public class CCRouting extends QLearningRouter {
             rlScore = sumList(sims) / sims.size();
         }
         double prophetDelta = getOtherPredFor(m, other) - getPredFor(m.getTo());
-        if (prophetDelta < 0) prophetDelta = 0;
+        if (prophetDelta < 0) {
+            prophetDelta = 0;
+        }
         double bf = bufferAwareEnabled ? getBufferFactor(other) : 1.0;
-        return (fusionWeightRL * rlScore) + (fusionWeightProphet * prophetDelta) + (fusionWeightBuffer * bf);
+        double ef = energyAwareEnabled ? getEnergyFactor(other) : 1.0;
+        return (fusionWeightRL * rlScore)
+                + (fusionWeightProphet * prophetDelta)
+                + (fusionWeightBuffer * bf)
+                + (fusionWeightEnergy * ef);
     }
 
     private boolean shouldForwardByProphet(Message m, DTNHost other) {
-        if (!prophetEnabled) return true;
-        if (m.getTo() == other) return true;
+        if (!prophetEnabled) {
+            return true;
+        }
+        if (m.getTo() == other) {
+            return true;
+        }
 
         double otherPred = getOtherPredFor(m, other);
         double myPred = getPredFor(m.getTo());
 
-        if (otherPred == 0 && myPred == 0) return prophetAllowNoInfo;
+        if (otherPred == 0 && myPred == 0) {
+            return prophetAllowNoInfo;
+        }
         return (otherPred - myPred) > prophetMinDelta;
     }
 
     private double getOtherPredFor(Message m, DTNHost other) {
-        if (!prophetEnabled) return 0;
+        if (!prophetEnabled) {
+            return 0;
+        }
         MessageRouter otherRouter = other.getRouter();
         if (otherRouter instanceof CCRouting) {
             return ((CCRouting) otherRouter).getPredFor(m.getTo());
         }
         return 0;
+    }
+
+    @Override
+    protected int checkReceiving(Message m) {
+        if (isDeadNode()) {
+            return DENIED_UNSPECIFIED;
+        }
+        return super.checkReceiving(m);
     }
 
     @Override
@@ -360,61 +601,69 @@ public class CCRouting extends QLearningRouter {
     @Override
     public void update() {
         super.update();
+        updateEnergyConsumption();
+
+        if (isDeadNode()) {
+            return;
+        }
 
         if (isTransferring() || !canStartTransfer()) {
             return;
         }
 
         if (exchangeDeliverableMessages() != null) {
-            return; 
+            return;
         }
 
         tryOtherMessage();
 
         if ((SimClock.getTime() - lastUpdateTime) >= updateInterval) {
-
             lastUpdateTime = SimClock.getTime();
 
             for (Map.Entry<Integer, Tuple<DTNHost, List<Integer>>> entry : waitForReward.entrySet()) {
-                if (entry.getKey() == newState && entry.getValue().getValue() != null && !entry.getValue().getValue().isEmpty()) {
-                    DTNHost other = entry.getValue().getKey();
-                    List<Integer> destinationsSent = entry.getValue().getValue();
-                    CCRouting othRouter = (CCRouting) other.getRouter();
-
-                    // === START UPDATE SESUAI ORQLCI ===
-                    int totalVisit = visitCount.get(other) != null ? visitCount.get(other) + 1 : 1;
-                    this.visitCount.put(other, totalVisit);
-
-                    // Ambil Encounter Probability & Buffer Factor
-                    double encounterProb = getPredFor(other); // (EP_x)
-                    double bf = bufferAwareEnabled ? getBufferFactor(other) : 1.0; // (BF_x)
-
-                    for (int destAddress : destinationsSent) { 
-                        // REWARD ORQLCI: 1 jika sampai di tujuan akhir, 0 jika ke perantara
-                        double reward = (other.getAddress() == destAddress) ? 1.0 : 0.0;
-                        
-                        int action = this.ql.GetAction(destAddress, entry.getKey(), this.waitForReward, true);
-                        this.ql.setLearningRate(totalVisit, learningCoeff);
-
-                        // Discount factor dihitung sesuai Persamaan (7) di paper
-                        this.ql.setDiscountFactorDynamic(discountGamma, bf);
-                        this.ql.UpdateState(destAddress, entry.getKey(), action, reward, newState, this, other);
-                    }
-                    // === END UPDATE SESUAI ORQLCI ===
-
-                    othRouter.dataReceived = 0;
-                    othRouter.dataTransferred = 0;
-                    othRouter.msgReceived = 0;
-                    othRouter.msgTransferred = 0;
+                if (entry.getValue() == null || entry.getValue().getValue() == null || entry.getValue().getValue().isEmpty()) {
+                    continue;
                 }
+
+                DTNHost other = entry.getValue().getKey();
+                List<Integer> destinationsSent = entry.getValue().getValue();
+                CCRouting othRouter = (CCRouting) other.getRouter();
+
+                int totalVisit = visitCount.get(other) != null ? visitCount.get(other) + 1 : 1;
+                this.visitCount.put(other, totalVisit);
+
+                double encounterProb = prophetEnabled ? getPredFor(other) : 1.0;
+                if (encounterProb < 0) {
+                    encounterProb = 0;
+                }
+                if (encounterProb > 1) {
+                    encounterProb = 1;
+                }
+
+                double bf = bufferAwareEnabled ? getBufferFactor(other) : 1.0;
+                double ef = energyAwareEnabled ? getEnergyFactor(other) : 1.0;
+
+                this.ql.setLearningRate(totalVisit, learningCoeff);
+                this.ql.setDiscountFactorDynamic(discountGamma, bf, ef);
+
+                int previousState = getHost().getAddress();
+                int action = other.getAddress();
+                int nextState = other.getAddress();
+
+                for (int destAddress : destinationsSent) {
+                    this.ql.UpdateState(destAddress, previousState, action, encounterProb, nextState, this, other);
+                }
+
+                othRouter.dataReceived = 0;
+                othRouter.dataTransferred = 0;
+                othRouter.msgReceived = 0;
+                othRouter.msgTransferred = 0;
             }
         }
     }
 
     private Tuple<Message, Connection> tryOtherMessage() {
         List<Tuple<Message, Connection>> messages = new ArrayList<>();
-        List<Tuple<Message, Connection>> tempMessages = new ArrayList<>();
-
         Collection<Message> msgCollection = getMessageCollection();
 
         Iterator<Connection> it = candidateReceiver.iterator();
@@ -424,39 +673,50 @@ public class CCRouting extends QLearningRouter {
             CCRouting othRouter = (CCRouting) other.getRouter();
 
             if (othRouter.isTransferring()) {
-                continue; 
+                continue;
             }
 
+            List<Tuple<Message, Connection>> tempMessages = new ArrayList<>();
             for (Message m : msgCollection) {
                 if (othRouter.hasMessage(m.getId())) {
-                    continue; 
+                    continue;
                 }
                 if (!shouldForwardByBufferFactor(m, other)) {
                     continue;
                 }
+                if (!shouldForwardByProphet(m, other)) {
+                    continue;
+                }
+                if (!shouldForwardByEnergy(m, other)) {
+                    continue;
+                }
 
                 int destinationAddress = m.getTo().getAddress();
+                boolean approvedByQ;
+                if (m.getTo() == other) {
+                    approvedByQ = true;
+                } else {
+                    int currentState = getHost().getAddress();
+                    double qForward = this.ql.getQV(destinationAddress, currentState, other.getAddress());
+                    double qCarry = this.ql.getQV(destinationAddress, currentState, getHost().getAddress());
+                    approvedByQ = qForward > qCarry;
+                }
 
-                // ORQLCI: Ambil keputusan forward dari Q-Table tujuan spesifik
-                newState = this.ql.GetAction(destinationAddress, other.getAddress(), this.waitForReward, false);
-
-                // Jika Q-Learning menyetujui, langsung kirim. (Pengecekan isSameInterest DIMATIKAN agar sesuai ORQLCI)
-                if (newState == other.getAddress()) {
+                if (approvedByQ) {
+                    newState = other.getAddress();
                     tempMessages.add(new Tuple<>(m, con));
                 }
             }
 
             if (!tempMessages.isEmpty()) {
-                // Diurutkan berdasarkan fusionScore atau sekadar antrian standar
                 Collections.sort(tempMessages, new InteresetSimilarityComparator());
-
-                messages.addAll(tempMessages);
-                tempMessages.clear();
 
                 List<Integer> sentDestinations = new ArrayList<>();
                 for (Tuple<Message, Connection> t : tempMessages) {
                     sentDestinations.add(t.getKey().getTo().getAddress());
                 }
+
+                messages.addAll(tempMessages);
                 this.waitForReward.put(other.getAddress(), new Tuple<>(other, sentDestinations));
                 it.remove();
                 it = candidateReceiver.iterator();
@@ -491,14 +751,42 @@ public class CCRouting extends QLearningRouter {
         return new CCRouting(this);
     }
 
-    public int getTotalDataRcv() { return this.dataReceived; }
-    public int getTotalDataTrf() { return this.dataTransferred; }
-    public int getMsgReceived() { return this.msgReceived; }
-    public int getMsgTransferred() { return this.msgTransferred; }
-    public double getCr() { return this.cr; }
-    public double getEma() { return this.ema; }
+    public int getTotalDataRcv() {
+        return this.dataReceived;
+    }
+
+    public int getTotalDataTrf() {
+        return this.dataTransferred;
+    }
+
+    public int getMsgReceived() {
+        return this.msgReceived;
+    }
+
+    public int getMsgTransferred() {
+        return this.msgTransferred;
+    }
+
+    public double getCr() {
+        return this.cr;
+    }
+
+    public double getEma() {
+        return this.ema;
+    }
+
+    public double getCurrentEnergy() {
+        return this.currentEnergy;
+    }
+
+    public double getInitialEnergyCapacity() {
+        return this.initialEnergyCapacity;
+    }
 
     public void countCongestionRatio() {
+        if (totalContactTime <= 0) {
+            return;
+        }
         double dataEachContact = (this.msgReceived + this.msgTransferred) / totalContactTime;
         this.dataContact.add(dataEachContact);
         double summedData = sumList(this.dataContact);
@@ -514,18 +802,26 @@ public class CCRouting extends QLearningRouter {
 
     private double sumList(List<Double> lists) {
         double total = 0.0;
-        for (double lst : lists) total += lst;
+        for (double lst : lists) {
+            total += lst;
+        }
         return total;
     }
 
     private double avgList(List<Double> lists) {
-        if (lists.isEmpty()) return 0;
+        if (lists.isEmpty()) {
+            return 0;
+        }
         double value = 0;
-        for (double i : lists) value += i;
+        for (double i : lists) {
+            value += i;
+        }
         return value / lists.size();
     }
 
-    public QLearning getQl() { return this.ql; }
+    public QLearning getQl() {
+        return this.ql;
+    }
 
     public void setDataReceiveTransmit(int value) {
         this.dataReceived = value;

@@ -1,1 +1,1 @@
-java -Xmx4G -cp target;lib/ECLA.jar;lib/DTNConsoleConnection.jar;lib/lombok.jar core.DTNSim %*
+java -Xmx8G -cp target;lib/ECLA.jar;lib/DTNConsoleConnection.jar;lib/lombok.jar core.DTNSim %*

@@ -123,8 +123,13 @@ public class CCRouting extends QLearningRouter {
     protected void initQL() {
         this.explorationPolicy = new EpsilonGreedyExploration(0.989);
         this.ql = new QLearning(totalState, totalAction, this.explorationPolicy, false);
-        this.totalRewardWithNode = new LinkedHashMap<>();
         this.visitCount = new LinkedHashMap<>();
+    }
+
+    @Override
+    protected Boolean isFinalDest(Message m, DTNHost host) {
+        // Bandingkan alamat tujuan pesan dengan alamat host saat ini
+        return m.getTo().getAddress() == host.getAddress();
     }
 
     private void initPreds() {
@@ -359,11 +364,6 @@ public class CCRouting extends QLearningRouter {
         }
     }
 
-    @Override
-    public boolean isFinalDest(Message m) {
-        return m.getTo() == getHost();
-    }
-
     private Tuple<Message, Connection> tryOtherMessage() {
         List<Tuple<Message, Connection>> messages = new ArrayList<>();
         List<Tuple<Message, Connection>> tempMessages = new ArrayList<>();
@@ -380,9 +380,6 @@ public class CCRouting extends QLearningRouter {
             for (Message m : msgCollection) {
                 if (othRouter.hasMessage(m.getId())) continue; 
                 if (!shouldForwardByBufferFactor(m, other)) continue;
-                
-                // Jangan forward pesan yang tujuan akhirnya adalah SAYA (sudah sampai rumah)
-                if (m.getTo() == getHost()) continue;
 
                 int destinationAddress = m.getTo().getAddress();
                 newState = this.ql.GetAction(destinationAddress, other.getAddress(), this.waitForReward, false);

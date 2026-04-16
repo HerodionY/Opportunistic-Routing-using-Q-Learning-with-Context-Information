@@ -38,7 +38,7 @@ public abstract class QLearningRouter extends ActiveRouter {
 	// learning rate
 	private double learningRate = 0.25;
 	// growth constant
-	private double growthConstant = 100;
+	protected double growthConstant = 100;
 
 	protected Map<DTNHost, Double> startTimestamps;
 	protected Map<DTNHost, List<Duration>> connHistory;
@@ -297,7 +297,7 @@ public abstract class QLearningRouter extends ActiveRouter {
 		this.tryAllMessagesToAllConnections();
 	}
 
-	private Boolean isFinalDest(Message m, DTNHost host) {
+	protected Boolean isFinalDest(Message m, DTNHost host) {
 		List<Boolean> topicMsg = (ArrayList) m.getProperty(MESSAGE_TOPICS_S);
 		int i = 0;
 		boolean exist = false;

@@ -8,7 +8,7 @@ public class CCRouting extends QLearningRouter {
 
     private double updateInterval;
 
-    // Variable untuk Congestion Ratio (Tetap dipertahankan untuk metrik/log, tapi tidak dipakai di Q-Learning)
+    // Metrik internal
     private int msgReceived = 0;
     private int msgTransferred = 0;
     private int dataReceived = 0;
@@ -21,66 +21,47 @@ public class CCRouting extends QLearningRouter {
     private double cr = 0.0;
     private double ema = 0.0;
 
-    // Variable untuk learning
+    // Q-Learning state
     private QLearning ql;
     private IExplorationPolicy explorationPolicy;
     private int totalState;
     private int totalAction;
-    private Map<DTNHost, Double> totalRewardWithNode;
     private Map<DTNHost, Integer> visitCount;
     private int newState = 0;
 
-    // PRoPHET delivery predictability state
+    // Toggles (Disesuaikan dengan Config)
+    private boolean prophetEnabled = true;
+    private boolean prophetAllowNoInfo = true;
+    private boolean bufferAwareEnabled = true;
+    private boolean fusionEnabled = true;
+
+    // PRoPHET state
     private int secondsInTimeUnit;
     private double beta;
     private double lastAgeUpdate = 0.0;
     private Map<DTNHost, Double> preds;
     private double pInit = P_INIT;
     private double gamma = GAMMA;
-    private boolean prophetEnabled = true;
-    private boolean prophetAllowNoInfo = true;
     private double prophetMinDelta = 0.0;
-    private boolean bufferAwareEnabled = false;
-    private double bufferFactorMin = 0.0;
-    private boolean fusionEnabled = false;
-    private double fusionWeightRL = 0.0;
-    private double fusionWeightProphet = 0.0;
-    private double fusionWeightBuffer = 0.0;
-
-    // Learning parameters
+    
+    // Weights & Learning Params
+    private double fusionWeightRL = 0.7;
+    private double fusionWeightProphet = 0.2;
+    private double fusionWeightBuffer = 0.1;
     private double discountGamma = 0.6;
     private double learningCoeff = 0.8;
 
-    // Map untuk menyimpan status pending (dikirim ke tujuan mana saja) - Format ORQLCI
     private Map<Integer, Tuple<DTNHost, List<Integer>>> waitForReward;
-
     private List<Connection> candidateReceiver;
 
     private static final String CCROUTING_NS = "CCRouting";
     private static final String UPDATE_INTERVAL = "updateInterval";
     private static final String TOTAL_STATE = "totalState";
     private static final String TOTAL_ACTION = "totalAction";
-
-    // PRoPHET settings
     private static final String PROPHET_NS = "ProphetRouter";
-    private static final String SECONDS_IN_UNIT_S = "secondsInTimeUnit";
-    private static final String BETA_S = "beta";
-    private static final String P_INIT_S = "pInit";
-    private static final String GAMMA_S = "gamma";
     private static final double P_INIT = 0.75;
     private static final double DEFAULT_BETA = 0.25;
     private static final double GAMMA = 0.98;
-    private static final String PROPHET_ENABLED = "prophetEnabled";
-    private static final String PROPHET_ALLOW_NOINFO = "prophetAllowNoInfo";
-    private static final String PROPHET_MIN_DELTA = "prophetMinDelta";
-    private static final String BUFFER_AWARE_ENABLED = "bufferAwareEnabled";
-    private static final String BUFFER_FACTOR_MIN = "bufferFactorMin";
-    private static final String FUSION_ENABLED = "fusionEnabled";
-    private static final String FUSION_WEIGHT_RL = "fusionWeightRL";
-    private static final String FUSION_WEIGHT_PROPHET = "fusionWeightProphet";
-    private static final String FUSION_WEIGHT_BUFFER = "fusionWeightBuffer";
-    private static final String DISCOUNT_GAMMA_S = "discountGamma";
-    private static final String LEARNING_COEFF_S = "learningCoeff";
 
     public CCRouting(Settings s) {
         super(s);
@@ -89,63 +70,23 @@ public class CCRouting extends QLearningRouter {
         totalState = ccSettings.getInt(TOTAL_STATE);
         totalAction = ccSettings.getInt(TOTAL_ACTION);
 
-        if (ccSettings.contains(PROPHET_ENABLED)) {
-            prophetEnabled = ccSettings.getBoolean(PROPHET_ENABLED);
-        }
-        if (ccSettings.contains(PROPHET_ALLOW_NOINFO)) {
-            prophetAllowNoInfo = ccSettings.getBoolean(PROPHET_ALLOW_NOINFO);
-        }
-        if (ccSettings.contains(PROPHET_MIN_DELTA)) {
-            prophetMinDelta = ccSettings.getDouble(PROPHET_MIN_DELTA);
-        }
-        if (ccSettings.contains(BUFFER_AWARE_ENABLED)) {
-            bufferAwareEnabled = ccSettings.getBoolean(BUFFER_AWARE_ENABLED);
-        }
-        if (ccSettings.contains(BUFFER_FACTOR_MIN)) {
-            bufferFactorMin = ccSettings.getDouble(BUFFER_FACTOR_MIN);
-        }
-        if (ccSettings.contains(DISCOUNT_GAMMA_S)) {
-            discountGamma = ccSettings.getDouble(DISCOUNT_GAMMA_S);
-        }
-        if (ccSettings.contains(LEARNING_COEFF_S)) {
-            learningCoeff = ccSettings.getDouble(LEARNING_COEFF_S);
-        }
-        if (ccSettings.contains(FUSION_ENABLED)) {
-            fusionEnabled = ccSettings.getBoolean(FUSION_ENABLED);
-        }
-        if (ccSettings.contains(FUSION_WEIGHT_RL)) {
-            fusionWeightRL = ccSettings.getDouble(FUSION_WEIGHT_RL);
-        }
-        if (ccSettings.contains(FUSION_WEIGHT_PROPHET)) {
-            fusionWeightProphet = ccSettings.getDouble(FUSION_WEIGHT_PROPHET);
-        }
-        if (ccSettings.contains(FUSION_WEIGHT_BUFFER)) {
-            fusionWeightBuffer = ccSettings.getDouble(FUSION_WEIGHT_BUFFER);
-        }
+        // Membaca Toggle dari Config
+        if (ccSettings.contains("prophetEnabled")) prophetEnabled = ccSettings.getBoolean("prophetEnabled");
+        if (ccSettings.contains("bufferAwareEnabled")) bufferAwareEnabled = ccSettings.getBoolean("bufferAwareEnabled");
+        if (ccSettings.contains("fusionEnabled")) fusionEnabled = ccSettings.getBoolean("fusionEnabled");
+        
+        // Membaca Weights
+        if (ccSettings.contains("fusionWeightRL")) fusionWeightRL = ccSettings.getDouble("fusionWeightRL");
+        if (ccSettings.contains("fusionWeightProphet")) fusionWeightProphet = ccSettings.getDouble("fusionWeightProphet");
+        if (ccSettings.contains("fusionWeightBuffer")) fusionWeightBuffer = ccSettings.getDouble("fusionWeightBuffer");
 
-        Settings prophetSettings = new Settings(PROPHET_NS);
-        if (prophetSettings.contains(SECONDS_IN_UNIT_S)) {
-            secondsInTimeUnit = prophetSettings.getInt(SECONDS_IN_UNIT_S);
-        } else {
-            secondsInTimeUnit = 30;
-        }
-        if (prophetSettings.contains(BETA_S)) {
-            beta = prophetSettings.getDouble(BETA_S);
-        } else {
-            beta = DEFAULT_BETA;
-        }
-        if (prophetSettings.contains(P_INIT_S)) {
-            pInit = prophetSettings.getDouble(P_INIT_S);
-        } else {
-            pInit = P_INIT;
-        }
-        if (prophetSettings.contains(GAMMA_S)) {
-            gamma = prophetSettings.getDouble(GAMMA_S);
-        } else {
-            gamma = GAMMA;
-        }
+        Settings pSet = new Settings(PROPHET_NS);
+        secondsInTimeUnit = pSet.contains("secondsInTimeUnit") ? pSet.getInt("secondsInTimeUnit") : 30;
+        beta = pSet.contains("beta") ? pSet.getDouble("beta") : DEFAULT_BETA;
+        pInit = pSet.contains("pInit") ? pSet.getDouble("pInit") : P_INIT;
+        gamma = pSet.contains("gamma") ? pSet.getDouble("gamma") : GAMMA;
+
         initPreds();
-
         waitForReward = new LinkedHashMap<>();
         candidateReceiver = new ArrayList<>();
         dataContact = new ArrayList<>();
@@ -155,27 +96,24 @@ public class CCRouting extends QLearningRouter {
 
     protected CCRouting(CCRouting r) {
         super(r);
-        updateInterval = r.updateInterval;
-        totalState = r.totalState;
-        totalAction = r.totalAction;
-        prophetEnabled = r.prophetEnabled;
-        prophetAllowNoInfo = r.prophetAllowNoInfo;
-        prophetMinDelta = r.prophetMinDelta;
-        bufferAwareEnabled = r.bufferAwareEnabled;
-        bufferFactorMin = r.bufferFactorMin;
-        fusionEnabled = r.fusionEnabled;
-        fusionWeightRL = r.fusionWeightRL;
-        fusionWeightProphet = r.fusionWeightProphet;
-        fusionWeightBuffer = r.fusionWeightBuffer;
-        discountGamma = r.discountGamma;
-        learningCoeff = r.learningCoeff;
-        secondsInTimeUnit = r.secondsInTimeUnit;
-        beta = r.beta;
-        pInit = r.pInit;
-        gamma = r.gamma;
-        initPreds();
+        this.updateInterval = r.updateInterval;
+        this.totalState = r.totalState;
+        this.totalAction = r.totalAction;
+        this.prophetEnabled = r.prophetEnabled;
+        this.bufferAwareEnabled = r.bufferAwareEnabled;
+        this.fusionEnabled = r.fusionEnabled;
+        this.fusionWeightRL = r.fusionWeightRL;
+        this.fusionWeightProphet = r.fusionWeightProphet;
+        this.fusionWeightBuffer = r.fusionWeightBuffer;
+        this.discountGamma = r.discountGamma;
+        this.learningCoeff = r.learningCoeff;
+        this.secondsInTimeUnit = r.secondsInTimeUnit;
+        this.beta = r.beta;
+        this.pInit = r.pInit;
+        this.gamma = r.gamma;
 
-        waitForReward = new HashMap<>();
+        initPreds();
+        waitForReward = new LinkedHashMap<>();
         candidateReceiver = new ArrayList<>();
         dataContact = new ArrayList<>();
         listOfSumDataContact = new ArrayList<>();
@@ -434,6 +372,11 @@ public class CCRouting extends QLearningRouter {
                 if (!shouldForwardByBufferFactor(m, other)) {
                     continue;
                 }
+                if(m.getTo().getAddress() == getHost().getAddress()){
+                    continue;
+                }
+
+
 
                 int destinationAddress = m.getTo().getAddress();
 

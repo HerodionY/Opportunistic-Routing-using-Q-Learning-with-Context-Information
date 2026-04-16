@@ -1,5 +1,5 @@
 # Scenario settings
-Scenario.name = Bench-StandardQL-Table1
+Scenario.name = Bench-Epidemic-Table1
 Scenario.simulateConnections = true
 Scenario.updateInterval = 0.1
 Scenario.endTime = 43200
@@ -14,7 +14,7 @@ Scenario.nrofHostGroups = 6
 
 ## Common settings for all groups
 Group.movementModel = ShortestPathMapBasedMovement
-Group.router = StandardQLearningRouter
+Group.router = EpidemicRouter
 # Node cache size 50MB
 Group.bufferSize = 50M
 Group.waitTime = 0, 120
@@ -45,11 +45,6 @@ Group6.groupID = t
 Group6.nrofHosts = 4
 Group6.movementModel = MapRouteMovement
 Group6.routeFile = data/tram10.wkt
-
-## StandardQLearningRouter specific
-StandardQLearningRouter.updateInterval = 100
-StandardQLearningRouter.totalState = 200
-StandardQLearningRouter.totalAction = 200
 
 ## Message creation parameters (Table 1)
 Events.nrof = 1

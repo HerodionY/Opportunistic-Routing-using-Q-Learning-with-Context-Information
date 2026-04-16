@@ -91,8 +91,8 @@ if __name__ == "__main__":
     
     # Isi array di bawah ini dengan nama file report hasil generate MessageStatsTimeReport
     report_files_per_protocol = {
-        'ORQLCI (CCRouting)': 'reports/Bench-ORQLCI-Table1_MessageStatsTimeReport0000.txt',
-        'Pure RL (StandardQL)': 'reports\Bench-StandardQL-Table1_MessageStatsTimeReport.txt',
+        'ORQLCI (CCRouting)': 'reports\Bench-ORQLCI-Table1_MessageStatsTimeReport0000.txt',
+        'Epidemic': 'reports\Bench-Epidemic-Table1_MessageStatsTimeReport.txt',
         'Prophet': 'reports\Bench-Prophet-Table1_MessageStatsTimeReport.txt'
     }
 

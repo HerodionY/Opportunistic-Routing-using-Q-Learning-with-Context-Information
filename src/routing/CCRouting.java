@@ -291,8 +291,18 @@ public class CCRouting extends QLearningRouter {
 
     @Override
     protected void transferDone(Connection con) {
+        // WAJIB: Memanggil super agar internal state simulator tetap bersih
+        super.transferDone(con);
+        
         this.msgTransferred++;
         this.dataTransferred += con.getMessage().getSize();
+
+        // OPTIMASI: Jika kita berhasil mengirim pesan ke TUJUAN AKHIRNYA, 
+        // hapus pesan tersebut dari buffer kita (menghemat RAM & mematikan Ping-Pong)
+        Message m = con.getMessage();
+        if (m.getTo() == con.getOtherNode(getHost())) {
+            this.deleteMessage(m.getId(), false);
+        }
     }
 
     @Override
@@ -349,10 +359,14 @@ public class CCRouting extends QLearningRouter {
         }
     }
 
+    @Override
+    public boolean isFinalDest(Message m) {
+        return m.getTo() == getHost();
+    }
+
     private Tuple<Message, Connection> tryOtherMessage() {
         List<Tuple<Message, Connection>> messages = new ArrayList<>();
         List<Tuple<Message, Connection>> tempMessages = new ArrayList<>();
-
         Collection<Message> msgCollection = getMessageCollection();
 
         Iterator<Connection> it = candidateReceiver.iterator();
@@ -361,58 +375,45 @@ public class CCRouting extends QLearningRouter {
             DTNHost other = con.getOtherNode(getHost());
             CCRouting othRouter = (CCRouting) other.getRouter();
 
-            if (othRouter.isTransferring()) {
-                continue; 
-            }
+            if (othRouter.isTransferring()) continue;
 
             for (Message m : msgCollection) {
-                if (othRouter.hasMessage(m.getId())) {
-                    continue; 
-                }
-                if (!shouldForwardByBufferFactor(m, other)) {
-                    continue;
-                }
-                if(m.getTo().getAddress() == getHost().getAddress()){
-                    continue;
-                }
-
-
+                if (othRouter.hasMessage(m.getId())) continue; 
+                if (!shouldForwardByBufferFactor(m, other)) continue;
+                
+                // Jangan forward pesan yang tujuan akhirnya adalah SAYA (sudah sampai rumah)
+                if (m.getTo() == getHost()) continue;
 
                 int destinationAddress = m.getTo().getAddress();
-
-                // ORQLCI: Ambil keputusan forward dari Q-Table tujuan spesifik
                 newState = this.ql.GetAction(destinationAddress, other.getAddress(), this.waitForReward, false);
 
-                // Jika Q-Learning menyetujui, langsung kirim. (Pengecekan isSameInterest DIMATIKAN agar sesuai ORQLCI)
                 if (newState == other.getAddress()) {
                     tempMessages.add(new Tuple<>(m, con));
                 }
             }
 
             if (!tempMessages.isEmpty()) {
-                // Diurutkan berdasarkan fusionScore atau sekadar antrian standar
                 Collections.sort(tempMessages, new InteresetSimilarityComparator());
-
                 messages.addAll(tempMessages);
-                tempMessages.clear();
 
+                // --- PERBAIKAN URUTAN DI SINI ---
                 List<Integer> sentDestinations = new ArrayList<>();
                 for (Tuple<Message, Connection> t : tempMessages) {
                     sentDestinations.add(t.getKey().getTo().getAddress());
                 }
+                
+                // BARU DI-CLEAR setelah data diambil
+                tempMessages.clear(); 
+                
                 this.waitForReward.put(other.getAddress(), new Tuple<>(other, sentDestinations));
                 it.remove();
                 it = candidateReceiver.iterator();
             }
         }
 
-        if (messages.isEmpty()) {
-            return null;
-        }
-
+        if (messages.isEmpty()) return null;
         return tryMessagesForConnected(messages);
     }
-
     private class InteresetSimilarityComparator implements Comparator<Tuple<Message, Connection>> {
         public int compare(Tuple<Message, Connection> tuple1, Tuple<Message, Connection> tuple2) {
             Message m1 = tuple1.getKey();

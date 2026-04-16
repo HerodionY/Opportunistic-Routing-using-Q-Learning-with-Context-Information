@@ -101,14 +101,14 @@ public class TestingReport extends Report implements UpdateListener {
 				// 	ema.put(host, tempLists);
 				// }
 
-				double reward = rtr.getEma() != 0 ? 1/rtr.getEma() : 0;
-				if(ema.containsKey(host)) {
-					ema.get(host).add(reward);
-				} else {
-					List<Double> tempLists = new ArrayList<>();
-					tempLists.add(reward);
-					ema.put(host, tempLists);
-				}
+// 				double reward = rtr.getEma() != 0 ? 1/rtr.getEma() : 0;
+// 				if(ema.containsKey(host)) {
+// 					ema.get(host).add(reward);
+// 				} else {
+// 					List<Double> tempLists = new ArrayList<>();
+// 					tempLists.add(reward);
+// 					ema.put(host, tempLists);
+// 				}
 			}
 
 			lastUpdateTime = SimClock.getTime();

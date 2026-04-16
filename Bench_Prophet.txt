@@ -1,9 +1,9 @@
 #
-# Configuration for ORQLCI (Opportunistic Routing using Q-Learning & Context Information)
+# Configuration for ProphetRouter (Fair Baseline)
 #
 
 ## Scenario settings
-Scenario.name = Bench-Prophet
+Scenario.name = Bench-Prophet-Fair
 Scenario.simulateConnections = true
 Scenario.updateInterval = 0.1
 # 43200s == 12h
@@ -73,17 +73,18 @@ Group6.waitTime = 10, 30
 Group6.speed = 7, 10
 Group6.nrofHosts = 2
 
-## ProphetRouter settings
+## ProphetRouter Specific Settings
 ProphetRouter.beta = 0.25
 ProphetRouter.pInit = 0.75
 ProphetRouter.gamma = 0.98
 ProphetRouter.secondsInTimeUnit = 30
 
+
 ## Message creation parameters
 Events.nrof = 1
 Events1.class = MessageEventGenerator
 # Creation interval in seconds (one new message every 25 to 35 seconds)
-Events1.interval = 25,35
+Events1.interval = 5,10
 # Message sizes (500kB - 1MB)
 Events1.size = 500k,1M
 # range of message source/destination addresses (0 to totalNodes-1)
@@ -105,7 +106,7 @@ MapBasedMovement.mapFile4 = data/shops.wkt
 ## Reports
 Report.nrofReports = 3
 Report.warmup = 0
-Report.reportDir = reports/
+Report.reportDir = reports/testing/paper_replication/Prophet/
 Report.report1 = MessageStatsReport
 Report.report2 = ContactTimesReport
 Report.report3 = PerformanceReport
@@ -120,4 +121,3 @@ GUI.UnderlayImage.offset = 64, 20
 GUI.UnderlayImage.scale = 4.75
 GUI.UnderlayImage.rotate = -0.015
 GUI.EventLogPanel.nrofEvents = 100
-#GUI.EventLogPanel.REfilter = .*p[1-9]<->p[1-9]$

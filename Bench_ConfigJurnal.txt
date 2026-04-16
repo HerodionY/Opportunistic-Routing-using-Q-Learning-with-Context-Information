@@ -65,13 +65,6 @@ Group6.routeFile = data/tram10.wkt
 CCRouting.updateInterval = 100
 CCRouting.totalState = 200
 CCRouting.totalAction = 200
-# Sesuai data: peak value 0.658 dicapai dengan koefisien di bawah:
-CCRouting.fusionWeightRL = 0.7
-CCRouting.fusionWeightProphet = 0.2
-CCRouting.fusionWeightBuffer = 0.1
-CCRouting.prophetEnabled = true
-CCRouting.fusionEnabled = true
-CCRouting.bufferAwareEnabled = true
 
 ## Message creation parameters (Table 1)
 Events.nrof = 1

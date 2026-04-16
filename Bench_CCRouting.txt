@@ -89,7 +89,7 @@ CCRouting.bufferAwareEnabled = true
 Events.nrof = 1
 Events1.class = MessageEventGenerator
 # Creation interval in seconds (one new message every 25 to 35 seconds)
-Events1.interval = 25,35
+Events1.interval = 5,10
 # Message sizes (500kB - 1MB)
 Events1.size = 500k,1M
 # range of message source/destination addresses (0 to totalNodes-1)
@@ -111,7 +111,7 @@ MapBasedMovement.mapFile4 = data/shops.wkt
 ## Reports
 Report.nrofReports = 3
 Report.warmup = 0
-Report.reportDir = reports/
+Report.reportDir = reports/testing/paper_replication/CCRouting/
 Report.report1 = MessageStatsReport
 Report.report2 = ContactTimesReport
 Report.report3 = PerformanceReport

@@ -227,8 +227,6 @@ public class ProphetRouter extends ActiveRouter {
 					continue; // skip messages that the other one has
 				}
 
-        tryAllMessagesToAllConnections();
-
 				if (othRouter.getPredFor(m.getTo()) > getPredFor(m.getTo())) {
 					// the other node has higher probability of delivery
 					messages.add(new Tuple<Message, Connection>(m,con));

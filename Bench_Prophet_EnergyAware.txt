@@ -5,7 +5,7 @@
 Scenario.name = Bench-Prophet-EnergyAware
 Scenario.simulateConnections = true
 Scenario.updateInterval = 0.1
-Scenario.endTime = 10000
+Scenario.endTime = 43200
 
 btInterface.type = SimpleBroadcastInterface
 btInterface.transmitSpeed = 250k

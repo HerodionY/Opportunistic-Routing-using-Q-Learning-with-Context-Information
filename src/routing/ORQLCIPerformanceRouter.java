@@ -213,7 +213,7 @@ public class ORQLCIPerformanceRouter extends QLearningRouter {
                     this.visitCount.put(other, totalVisit);
                     this.totalRewardWithNode.put(other, totalReward);
 
-                    int action = this.ql.GetAction(0, entry.getKey(), waitForReward, true);
+                    int action = this.ql.GetAction(0, entry.getKey(), null, true);
                     this.ql.setLearningRate(totalVisit, 0.8);
                     // this.ql.setDiscountFactor(totalReward);
                     this.ql.UpdateState(0, entry.getKey(), action, reward, newState, this, other);
@@ -235,7 +235,7 @@ public class ORQLCIPerformanceRouter extends QLearningRouter {
             DTNHost other = con.getOtherNode(getHost());
             ORQLCIPerformanceRouter othRouter = (ORQLCIPerformanceRouter) other.getRouter();
 
-            newState = this.ql.GetAction(0, other.getAddress(), this.waitForReward, false);
+            newState = this.ql.GetAction(0, other.getAddress(), null, false);
             
             if(newState == other.getAddress()) {
                 if (othRouter.isTransferring()) continue;

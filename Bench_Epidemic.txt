@@ -1,10 +1,10 @@
 #
-# Configuration for ORQLCI (Revised State-Aware Version)
+# Configuration for Epidemic (Baseline 2)
 # Total Nodes: 200 | Simulation Time: 12h | Message TTL: 5m
 #
 
 ## Scenario settings
-Scenario.name = ORQLCI_StateAware_Replication
+Scenario.name = Epidemic_StateAware_Replication
 Scenario.simulateConnections = true
 Scenario.updateInterval = 0.1
 # Simulation time: 43200s (12 jam)
@@ -22,7 +22,7 @@ Scenario.nrofHostGroups = 6
 
 ## Common settings for all groups
 Group.movementModel = ShortestPathMapBasedMovement
-Group.router = CCRouting
+Group.router = EpidemicRouter
 # Node cache size: 50MB
 Group.bufferSize = 50M
 Group.waitTime = 0, 120
@@ -46,19 +46,6 @@ Group5.groupID = t
 Group5.nrofHosts = 2
 Group6.groupID = t
 Group6.nrofHosts = 2
-
-## CCRouting (ORQLCI) settings
-# UpdateInterval diperpendek agar AI lebih responsif terhadap mobilitas
-CCRouting.updateInterval = 30
-
-# SEKARANG TOTAL STATE ADALAH 3 (s0: Lega, s1: Sedang, s2: Kritis)
-CCRouting.totalState = 3
-# TOTAL ACTION ADALAH 200 (Sesuai jumlah host)
-CCRouting.totalAction = 200
-
-# Parameter Tuning RL
-CCRouting.baseDiscountGamma = 0.6
-CCRouting.learningCoeff = 0.8
 
 ## Message creation parameters
 Events.nrof = 1
@@ -86,7 +73,7 @@ MapBasedMovement.mapFile4 = data/shops.wkt
 Report.nrofReports = 3
 Report.warmup = 0
 # Directory khusus untuk hasil revisi
-Report.reportDir = reports/ORQLCI_Final_StateAware/
+Report.reportDir = reports/Epidemic_Final_StateAware/
 Report.report1 = MessageStatsReport
 Report.report2 = ContactTimesReport
 Report.report3 = PerformanceReport

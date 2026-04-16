@@ -90,8 +90,13 @@ public class EpsilonGreedyExploration implements IExplorationPolicy{
 
         for ( int i = 1; i < actionsCount; i++ )
         {
-            if(waitForReward.get(i) != null) {
+            if (waitForReward != null && waitForReward.get(i) != null) {
                 if(waitForReward.get(i).getValue().contains(isWaitingReward) && (actionEstimates[i] > maxReward)) {
+                    maxReward = actionEstimates[i];
+                    greedyAction = i;
+                }
+            } else {
+                if (actionEstimates[i] > maxReward) {
                     maxReward = actionEstimates[i];
                     greedyAction = i;
                 }

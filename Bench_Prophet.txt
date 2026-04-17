@@ -29,10 +29,8 @@ Group.waitTime = 0, 120
 Group.nrofInterfaces = 1
 Group.interface1 = btInterface
 Group.speed = 0.5, 1.5
-# CRITICAL: Message lifetime 300 minutes (5 hours) sesuai gambar parameter paper
-Group.msgTtl = 300
+Group.msgTtl = 30
 
-# --- NODE DISTRIBUTIONS (Total 200) ---
 Group1.groupID = p
 Group1.nrofHosts = 64
 Group2.groupID = c
@@ -78,8 +76,7 @@ MapBasedMovement.mapFile4 = data/shops.wkt
 ## Reports
 Report.nrofReports = 4
 Report.warmup = 0
-# Directory khusus untuk hasil revisi
-Report.reportDir = reports/Prophet_Final_StateAware/
+Report.reportDir = reports/Prophet_Final_StateAware/ttl30/
 Report.report1 = MessageStatsReport
 Report.report2 = ContactTimesReport
 Report.report3 = PerformanceReport

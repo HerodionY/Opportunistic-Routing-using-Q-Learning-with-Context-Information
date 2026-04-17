@@ -5,12 +5,6 @@ import core.Tuple;
 import java.util.*;
 import routing.QLearningRouter;
 
-/**
- * Implementation of Q-Learning for ORQLCI.
- * Perbaikan: Mendukung Multiple States (Context-Aware),
- * Optimasi Max Search, dan Ageing yang Konsisten.
- * * @author Chornael Damar Kesuma (Final Revised Version)
- */
 public class QLearning {
 
     private int states;
@@ -105,17 +99,15 @@ public class QLearning {
         initDestinationIfNeeded(destination);
         double[][] table = qvalues.get(destination);
 
-        // Logika Goal State (Persamaan 9):
-        // Jika sampai ke tujuan (reward 1.0), tidak ada langkah masa depan
-        // (futureComponent = 0)
         double futureComponent = (reward >= 1.0) ? 0.0 : (discountFactor * neighborMaxQPrime);
 
-        // Eksekusi Rumus Bellman yang dimodifikasi
         double currentQ = table[state][action];
         double updatedQ = (1.0 - learningRate) * currentQ + (learningRate * (reward + futureComponent));
 
         // Update Tabel
         table[state][action] = updatedQ;
+
+        report.RewardTimeReport.addReward(reward);
     }
 
     public void ageQTable() {

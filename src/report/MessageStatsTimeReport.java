@@ -5,8 +5,10 @@ package report;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import core.DTNHost;
 import core.Message;
@@ -31,6 +33,7 @@ public class MessageStatsTimeReport extends Report implements MessageListener, U
 	private double nextReportTime;
 
 	private Map<String, Double> creationTimes;
+	private Set<String> deliveredMessages;
 	private List<Double> latencies;
 	private List<Integer> hopCounts;
 	private List<Double> msgBufferTime;
@@ -68,6 +71,7 @@ public class MessageStatsTimeReport extends Report implements MessageListener, U
 		nextReportTime = interval;
 
 		this.creationTimes = new HashMap<String, Double>();
+		this.deliveredMessages = new HashSet<String>();
 		this.latencies = new ArrayList<Double>();
 		this.msgBufferTime = new ArrayList<Double>();
 		this.hopCounts = new ArrayList<Integer>();
@@ -158,7 +162,8 @@ public class MessageStatsTimeReport extends Report implements MessageListener, U
 		}
 
 		this.nrofRelayed++;
-		if (finalTarget) {
+		if (finalTarget && !deliveredMessages.contains(m.getId())) {
+			this.deliveredMessages.add(m.getId());
 			this.latencies.add(getSimTime() - this.creationTimes.get(m.getId()));
 			this.nrofDelivered++;
 			this.hopCounts.add(m.getHops().size() - 1);

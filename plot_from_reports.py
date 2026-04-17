@@ -115,9 +115,9 @@ def plot_comparison(protocols, delivery_data, overhead_data, latency_data, drop_
 if __name__ == "__main__":
     print("=== Skrip Plotting Otomatis dari MessageStatsReport ===")
     report_files = {
-        "ORQLCI": "reports/ORQLCI_Final_StateAware/ORQLCI_StateAware_Replication_MessageStatsReport.txt",
-        "Epidemic": "reports/Epidemic_Final_StateAware/Epidemic_StateAware_Replication_MessageStatsReport.txt",
-        "Prophet": "reports/Prophet_Final_StateAware/Prophet_StateAware_Replication_MessageStatsReport.txt",
+        "ORQLCI": "reports/ORQLCI_Final_StateAware/ORQLCI_Reality_Helsinki_MessageStatsReport.txt",
+        "Epidemic": "reports/Epidemic_Final_StateAware/Epidemic_Reality_Helsinki_MessageStatsReport.txt",
+        "Prophet": "reports/Prophet_Final_StateAware/Prophet_Reality_Helsinki_MessageStatsReport.txt",
     }
 
     protocols = list(report_files.keys())

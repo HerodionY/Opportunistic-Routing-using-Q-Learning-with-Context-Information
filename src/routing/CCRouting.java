@@ -38,9 +38,6 @@ public class CCRouting extends QLearningRouter {
     private double baseDiscountGamma = 0.6;
     private double learningCoeff = 0.8;
 
-    // Data Structures
-    // Sekarang menggunakan Map<Integer, List<Integer>> untuk menghindari Overwrite
-    // Bug
     private Map<Integer, List<Integer>> pendingRewards;
     private List<Connection> candidateReceiver;
 
@@ -89,12 +86,6 @@ public class CCRouting extends QLearningRouter {
         this.lastAgeUpdate = 0.0;
     }
 
-    // --- CONTEXT: DYNAMIC STATE CALCULATION ---
-
-    /**
-     * Menentukan State berdasarkan Buffer Factor (Self-Awareness)
-     * s0: Lega (>70%), s1: Sedang (30-70%), s2: Kritis (<30%)
-     */
     private int calculateCurrentState() {
         double bf = getBufferFactor(getHost());
         if (bf > 0.7)
@@ -153,8 +144,6 @@ public class CCRouting extends QLearningRouter {
                 (fusionWeightBuffer * bf);
     }
 
-    // --- ROUTER INTERACTION ---
-
     @Override
     public void changedConnection(Connection con) {
         super.changedConnection(con);
@@ -190,35 +179,43 @@ public class CCRouting extends QLearningRouter {
             lastUpdateTime = currentTime;
             ql.ageQTable();
 
-            // Hanya update untuk node yang SAAT INI terkoneksi
             for (Connection con : candidateReceiver) {
                 DTNHost other = con.getOtherNode(getHost());
-                int otherAddr = other.getAddress();
-
-                List<Integer> dests = pendingRewards.get(otherAddr);
-                if (dests == null || dests.isEmpty())
-                    continue;
-
                 CCRouting othRouter = (CCRouting) other.getRouter();
-                int totalVisit = visitCount.getOrDefault(other, 0) + 1;
-                visitCount.put(other, totalVisit);
-
                 double pEncounter = getPredFor(other);
                 double bf = getBufferFactor(other);
-                int s = calculateCurrentState(); // Ambil state saat ini
+                int s = calculateCurrentState();
 
-                for (int destAddr : dests) {
+                for (Message m : getMessageCollection()) {
+                    int destAddr = m.getTo().getAddress();
+                    int otherAddr = other.getAddress();
+
                     double reward = (otherAddr == destAddr) ? 1.0 : 0.0;
+
                     double neighborMaxQPrime = othRouter.getQl().getNeighborMaxQPrime(destAddr, pEncounter);
 
-                    this.ql.setLearningRate(totalVisit, learningCoeff);
                     this.ql.setDiscountFactorDynamic(baseDiscountGamma, bf);
 
-                    // Update: s_sekarang (0-2), action (alamat node tetangga)
                     this.ql.UpdateState(destAddr, s, otherAddr, reward, neighborMaxQPrime, this, other);
                 }
-                dests.clear(); // Bersihkan setelah reward diproses
             }
+        }
+    }
+
+    @Override
+    protected void transferDone(Connection con) {
+        Message m = con.getMessage();
+        if (m == null)
+            return;
+
+        DTNHost recipient = con.getOtherNode(getHost());
+
+        if (m.getTo() == recipient) {
+            int destAddr = m.getTo().getAddress();
+            int otherAddr = recipient.getAddress();
+            int s = calculateCurrentState();
+            this.ql.UpdateState(destAddr, s, otherAddr, 1.0, 0.0, this, recipient);
+            report.RewardTimeReport.addReward(1.0);
         }
     }
 
@@ -244,7 +241,6 @@ public class CCRouting extends QLearningRouter {
 
                 int destAddr = m.getTo().getAddress();
 
-                // Keputusan Q-Learning Policy (Menggunakan State Dinamis)
                 int action = this.ql.GetAction(destAddr, s, null, false);
 
                 if (action == other.getAddress()) {

@@ -124,7 +124,7 @@ public class CCRouting extends QLearningRouter {
         this.lastAgeUpdate = currentTime;
     }
 
-    // --- CONTEXT CALCULATION (Equations 7 & Fusion) ---
+    // --- Perhitungan Buffer Factor (Equations 7) ---
 
     private double getBufferFactor(DTNHost host) {
         MessageRouter router = host.getRouter();

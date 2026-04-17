@@ -75,7 +75,6 @@ public class QLearning {
 
     /**
      * Persamaan (10): max Q' = max(Q_d(x,y)) * P(x,y)
-     * Digunakan untuk mengambil "janji" keberhasilan dari node tetangga.
      */
     public double getNeighborMaxQPrime(int destination, double pEncounter) {
         initDestinationIfNeeded(destination);

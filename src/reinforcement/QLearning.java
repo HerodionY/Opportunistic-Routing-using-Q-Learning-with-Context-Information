@@ -118,10 +118,6 @@ public class QLearning {
         table[state][action] = updatedQ;
     }
 
-    /**
-     * Mekanisme Ageing untuk menangani mobilitas node.
-     * Tanpa ini, agen akan terus percaya pada rute yang sudah tidak ada (basi).
-     */
     public void ageQTable() {
         if (qvalues.isEmpty())
             return;

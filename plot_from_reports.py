@@ -43,7 +43,7 @@ def plot_comparison(protocols, delivery_data, overhead_data, latency_data, drop_
     # Konfigurasi plot
     fig, axs = plt.subplots(2, 2, figsize=(14, 10))
     fig.suptitle(
-        "Perbandingan Evaluasi Kinerja (Baca dari Report)",
+        "Perbandingan Evaluasi Kinerja",
         fontsize=16,
         fontweight="bold",
     )
@@ -114,13 +114,8 @@ def plot_comparison(protocols, delivery_data, overhead_data, latency_data, drop_
 
 if __name__ == "__main__":
     print("=== Skrip Plotting Otomatis dari MessageStatsReport ===")
-
-    # DAFTAR PROTOKOL DAN FILE REPORT YANG BERSESUAIAN
-    # Silakan sesuaikan jalur (path) dan nama file laporan jika berbeda.
-    # Disini sebagai contoh kita asumsikan StandardQL adalah Pure RL.
-
     report_files = {
-        "ORQLCI (State-Aware)": "reports/ORQLCI_Final_StateAware/ORQLCI_StateAware_Replication_MessageStatsReport.txt",
+        "ORQLCI": "reports/ORQLCI_Final_StateAware/ORQLCI_StateAware_Replication_MessageStatsReport.txt",
         "Epidemic": "reports/Epidemic_Final_StateAware/Epidemic_StateAware_Replication_MessageStatsReport.txt",
         "Prophet": "reports/Prophet_Final_StateAware/Prophet_StateAware_Replication_MessageStatsReport.txt",
     }

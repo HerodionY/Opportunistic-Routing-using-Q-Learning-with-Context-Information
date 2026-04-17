@@ -185,13 +185,12 @@ public class CCRouting extends QLearningRouter {
 
         tryOtherMessage();
 
-        // --- ORQLCI LEARNING UPDATE CYCLE ---
         double currentTime = SimClock.getTime();
         if ((currentTime - lastUpdateTime) >= updateInterval) {
             lastUpdateTime = currentTime;
             ql.ageQTable();
 
-            // Hanya update untuk node yang SAAT INI terkoneksi (Mencegah Oracle)
+            // Hanya update untuk node yang SAAT INI terkoneksi
             for (Connection con : candidateReceiver) {
                 DTNHost other = con.getOtherNode(getHost());
                 int otherAddr = other.getAddress();
@@ -276,8 +275,6 @@ public class CCRouting extends QLearningRouter {
 
     @Override
     public Map<Integer, Tuple<DTNHost, List<Integer>>> getMapWaitForReward() {
-        // Method ini tetap ada untuk kompatibilitas interface, tapi logika internal
-        // kita sudah diperbaiki
         return null;
     }
 

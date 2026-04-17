@@ -70,13 +70,14 @@ MapBasedMovement.mapFile3 = data/pedestrian_paths.wkt
 MapBasedMovement.mapFile4 = data/shops.wkt
 
 ## Reports
-Report.nrofReports = 3
+Report.nrofReports = 4
 Report.warmup = 0
 # Directory khusus untuk hasil revisi
 Report.reportDir = reports/Epidemic_Final_StateAware/
 Report.report1 = MessageStatsReport
 Report.report2 = ContactTimesReport
 Report.report3 = PerformanceReport
+Report.report4 = MessageStatsTimeReport
 
 ## Optimization settings
 Optimization.cellSizeMult = 5

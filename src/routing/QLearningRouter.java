@@ -155,7 +155,7 @@ public abstract class QLearningRouter extends ActiveRouter {
 			double disconnectionTime = 0;
 
 			if (connHistory.containsKey(from) && !connHistory.get(from).isEmpty()) {
-			// if (connHistory.containsKey(from)) {
+				// if (connHistory.containsKey(from)) {
 				int conSize = connHistory.get(from).size();
 				double end = connHistory.get(from).get(conSize - 1).end;
 				disconnectionTime = curTime - end;
@@ -315,8 +315,9 @@ public abstract class QLearningRouter extends ActiveRouter {
 		List<Boolean> topicNode = n.getSocialProfileOI();
 
 		int i = 0;
-		for(Iterator<Boolean> itTop = topicMsg.iterator(); itTop.hasNext(); i++) {
-			if(itTop.next().equals(topicNode.get(i))) return true;
+		for (Iterator<Boolean> itTop = topicMsg.iterator(); itTop.hasNext(); i++) {
+			if (itTop.next().equals(topicNode.get(i)))
+				return true;
 		}
 
 		return false;
@@ -326,16 +327,16 @@ public abstract class QLearningRouter extends ActiveRouter {
 		List<Boolean> topicMsg = (ArrayList) m.getProperty(MESSAGE_TOPICS_S);
 		List<Boolean> topicNode = n.getSocialProfileOI();
 		List<Double> weightNode = n.getSocialProfile();
-		
+
 		List<Double> valInterest = new ArrayList<>();
 
 		Iterator<Boolean> itTop = topicMsg.iterator();
 
 		int i = 0;
-		while(itTop.hasNext()) {
-			if(itTop.next().equals(topicNode.get(i))) {
+		while (itTop.hasNext()) {
+			if (itTop.next().equals(topicNode.get(i))) {
 				valInterest.add(weightNode.get(i));
-			} 
+			}
 		}
 
 		return valInterest;

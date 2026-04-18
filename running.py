@@ -17,18 +17,67 @@ BASE_REPORT_DIR = "reports/STRESS_TEST"
 
 # --- DEFINISI 12 VARIASI ---
 scenarios = {
-    "SP_Buffer_Cripple":   {"Group.bufferSize": "2M", "Group.movementModel": "ShortestPathMapBasedMovement", "Scenario.nrofHosts": "100"},
-    "SP_Storm_Load":       {"Events1.interval": "1, 2", "Events1.size": "1M, 2M", "Group.movementModel": "ShortestPathMapBasedMovement"},
-    "SP_Hyper_Mobility":   {"Group.speed": "15, 25", "Group.movementModel": "ShortestPathMapBasedMovement"},
-    "SP_Short_Range":      {"btInterface.transmitRange": "2", "Group.movementModel": "ShortestPathMapBasedMovement"},
-    "SP_Big_Message":      {"Events1.size": "20M, 30M", "Group.bufferSize": "50M"},
-    "SP_Mega_Scale":       {"Scenario.nrofHosts": "500", "CCRouting.totalAction": "500"},
-    "RT_Sparse_Death":     {"Group.msgTtl": "15", "Events1.class": "ExternalEventsQueue", "Group.movementModel": "StationaryMovement", "Scenario.simulateConnections": "false"},
-    "RT_Long_Wait":        {"Events1.interval": "3600, 3600", "Events1.class": "ExternalEventsQueue", "Group.movementModel": "StationaryMovement"},
-    "RT_High_TTL_Greedy":  {"Group.msgTtl": "20160", "Events1.class": "ExternalEventsQueue", "Group.movementModel": "StationaryMovement"},
-    "RT_Small_Buffer":     {"Group.bufferSize": "5M", "Events1.class": "ExternalEventsQueue", "Group.movementModel": "StationaryMovement"},
-    "RT_Target_Specific":  {"Events1.hosts": "0, 5", "Scenario.nrofHosts": "100", "Events1.class": "ExternalEventsQueue"},
-    "RT_Max_Endurance":    {"Scenario.endTime": "2592000", "Events1.class": "ExternalEventsQueue", "Group.movementModel": "StationaryMovement"}
+    "SP_Buffer_Cripple":   {
+        "Group.bufferSize": "2M", 
+        "Group.movementModel": "ShortestPathMapBasedMovement", 
+        "Group1.nrofHosts": "100",
+        "CCRouting.totalAction": "100",
+        "Events2.hosts": "0, 99"
+    },
+    "SP_Storm_Load":       {
+        "Events2.interval": "1, 2", 
+        "Events2.size": "1M, 2M", 
+        "Group.movementModel": "ShortestPathMapBasedMovement"
+    },
+    "SP_Hyper_Mobility":   {
+        "Group.speed": "15, 25", 
+        "Group.movementModel": "ShortestPathMapBasedMovement"
+    },
+    "SP_Short_Range":      {
+        "btInterface.transmitRange": "2", 
+        "Group.movementModel": "ShortestPathMapBasedMovement"
+    },
+    "SP_Big_Message":      {
+        "Events2.size": "20M, 30M", 
+        "Group.bufferSize": "50M"
+    },
+    "SP_Mega_Scale":       {
+        "Group1.nrofHosts": "500", 
+        "CCRouting.totalAction": "500",
+        "Events2.hosts": "0, 499"
+    },
+    "RT_Sparse_Death":     {
+        "Group.msgTtl": "15", 
+        "Events1.class": "ExternalEventsQueue", 
+        "Group.movementModel": "StationaryMovement", 
+        "Scenario.simulateConnections": "false"
+    },
+    "RT_Long_Wait":        {
+        "Events2.interval": "3600, 3600", 
+        "Events1.class": "ExternalEventsQueue", 
+        "Group.movementModel": "StationaryMovement"
+    },
+    "RT_High_TTL_Greedy":  {
+        "Group.msgTtl": "20160", 
+        "Events1.class": "ExternalEventsQueue", 
+        "Group.movementModel": "StationaryMovement"
+    },
+    "RT_Small_Buffer":     {
+        "Group.bufferSize": "5M", 
+        "Events1.class": "ExternalEventsQueue", 
+        "Group.movementModel": "StationaryMovement"
+    },
+    "RT_Target_Specific":  {
+        "Events2.hosts": "0, 5", 
+        "Group1.nrofHosts": "100", 
+        "CCRouting.totalAction": "100",
+        "Events1.class": "ExternalEventsQueue"
+    },
+    "RT_Max_Endurance":    {
+        "Scenario.endTime": "2592000", 
+        "Events1.class": "ExternalEventsQueue", 
+        "Group.movementModel": "StationaryMovement"
+    }
 }
 
 def run_scenario(name, overrides):

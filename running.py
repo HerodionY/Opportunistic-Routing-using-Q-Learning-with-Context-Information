@@ -7,15 +7,21 @@ import time
 JVM_ARGS = "-Xmx4G"  # Dibatasi 4GB agar aman untuk 3 proses sekaligus di RAM 12GB
 MAX_WORKERS = 3     # Sesuai permintaan: 3 simulasi jalan berbarengan (Queueing)
 
-# Update Classpath secara dinamis untuk menyertakan SEMUA jar di folder lib
-lib_jars = [os.path.join("lib", f) for f in os.listdir("lib") if f.endswith(".jar")]
-CLASSPATH = os.pathsep.join(["target"] + lib_jars)
+# Alamat Absolut agar tidak bingung antar device
+BASE_DIR = os.path.abspath(os.getcwd()).replace("\\", "/")
+LIB_DIR = f"{BASE_DIR}/lib"
+TARGET_DIR = f"{BASE_DIR}/target"
+
+# Update Classpath secara dinamis dengan ABSOLUTE PATH
+lib_jars = [f"{LIB_DIR}/{f}" for f in os.listdir("lib") if f.endswith(".jar")]
+CLASSPATH = os.pathsep.join([TARGET_DIR] + lib_jars)
 
 MAIN_CLASS = "core.DTNSim"
 BASE_FILE = "Bench_CCRouting.txt" 
-BASE_REPORT_DIR = "reports/STRESS_TEST"
+BASE_REPORT_DIR = f"{BASE_DIR}/reports/STRESS_TEST"
 
 # --- DEFINISI 12 VARIASI ---
+# (Isi scenarios tetap sama seperti sebelumnya)
 scenarios = {
     "SP_Buffer_Cripple":   {
         "Group.bufferSize": "2M", 
@@ -84,12 +90,17 @@ def run_scenario(name, overrides):
     """Fungsi untuk menjalankan satu skenario simulasi"""
     print(f"[QUEUED] Skenario: {name}")
     
-    # 1. Persiapan Folder Report
+    # 1. Persiapan Folder Report (Pakai Absolute Path)
     report_path = f"{BASE_REPORT_DIR}/{name}"
     if not os.path.exists(report_path):
         os.makedirs(report_path)
     
-    # 2. Pembuatan File Config Baru
+    # 2. Tambahkan Report.reportDir ke dalam overrides agar ditulis ke file config
+    # Kita buat copy agar tidak merusak data asli
+    current_overrides = overrides.copy()
+    current_overrides["Report.reportDir"] = f"{report_path}/" # Wajib akhiri dengan /
+
+    # 3. Pembuatan File Config Baru
     new_config_name = f"cfg_{name}.txt"
     try:
         with open(BASE_FILE, 'r') as f:
@@ -98,22 +109,32 @@ def run_scenario(name, overrides):
         with open(new_config_name, 'w') as f:
             for line in lines:
                 written = False
-                for key, val in overrides.items():
+                for key, val in current_overrides.items():
+                    # Cek apakah line ini mengandung pengaturan yang mau kita override
                     if line.strip().startswith(key + " =") or line.strip().startswith(key + "="):
                         f.write(f"{key} = {val}\n")
                         written = True
                         break
                 if not written:
                     f.write(line)
+                    
+            # Tambahkan settings baru jika belum ada di file original
+            # (Berguna jika kita menambahkan parameter baru ke overrides)
+            for key, val in current_overrides.items():
+                # Cek secara sederhana apakah sudah ditulis tadi
+                already_in_file = any((l.strip().startswith(key + " =") or l.strip().startswith(key + "=")) for l in lines)
+                if not already_in_file:
+                    f.write(f"{key} = {val}\n")
+                    
     except Exception as e:
         return f"[ERROR] Gagal membuat config {name}: {e}"
 
-    # 3. Eksekusi Java
+    # 4. Eksekusi Java (Tanpa argumen Report.reportDir di cmd karena sudah ada di file config)
     log_file = f"{report_path}/sim_output.log"
-    cmd = f'java {JVM_ARGS} -cp "{CLASSPATH}" {MAIN_CLASS} -b 1 "{new_config_name}" "Report.reportDir={report_path}"'
+    cmd = f'java {JVM_ARGS} -cp "{CLASSPATH}" {MAIN_CLASS} -b 1 "{new_config_name}"'
     
     start_time = time.time()
-    print(f"[RUNNING] {name} (Logging to {log_file})...")
+    print(f"[RUNNING] {name} (Log: {log_file})...")
     
     try:
         with open(log_file, "w") as f_log:
@@ -124,7 +145,6 @@ def run_scenario(name, overrides):
     except subprocess.CalledProcessError as e:
         return f"[FAILED] {name} error (Cek log: {log_file})"
     finally:
-        # Opsional: Hapus config temporary jika ingin bersih-bersih
         if os.path.exists(new_config_name):
             os.remove(new_config_name)
 

@@ -1,11 +1,19 @@
 import subprocess
 import os
+import concurrent.futures
+import time
 
 # --- KONFIGURASI ENV ---
-JVM_ARGS = "-Xmx12G"
-CLASSPATH = "target;lib/ECLA.jar;lib/DTNConsoleConnection.jar;lib/lombok.jar"
+JVM_ARGS = "-Xmx4G"  # Dibatasi 4GB agar aman untuk 3 proses sekaligus di RAM 12GB
+MAX_WORKERS = 3     # Sesuai permintaan: 3 simulasi jalan berbarengan (Queueing)
+
+# Update Classpath secara dinamis untuk menyertakan SEMUA jar di folder lib
+lib_jars = [os.path.join("lib", f) for f in os.listdir("lib") if f.endswith(".jar")]
+CLASSPATH = os.pathsep.join(["target"] + lib_jars)
+
 MAIN_CLASS = "core.DTNSim"
 BASE_FILE = "Bench_CCRouting.txt" 
+BASE_REPORT_DIR = "reports/STRESS_TEST"
 
 # --- DEFINISI 12 VARIASI ---
 scenarios = {
@@ -23,25 +31,21 @@ scenarios = {
     "RT_Max_Endurance":    {"Scenario.endTime": "2592000", "Events1.class": "ExternalEventsQueue", "Group.movementModel": "StationaryMovement"}
 }
 
-def run_all():
-    if not os.path.exists(BASE_FILE):
-        print(f"Error: File {BASE_FILE} tidak ditemukan!")
-        return
-
-    for name, overrides in scenarios.items():
-        print(f"\n[PREPARING] Skenario: {name}")
-        
-        # 1. Bikin folder report (Gunakan Forward Slash agar Java tidak pusing)
-        report_path_raw = f"reports/STRESS_TEST/{name}"
-        if not os.path.exists(report_path_raw):
-            os.makedirs(report_path_raw)
-            print(f"[MKDIR] Folder siap: {report_path_raw}")
-
-        # 2. Baca template
+def run_scenario(name, overrides):
+    """Fungsi untuk menjalankan satu skenario simulasi"""
+    print(f"[QUEUED] Skenario: {name}")
+    
+    # 1. Persiapan Folder Report
+    report_path = f"{BASE_REPORT_DIR}/{name}"
+    if not os.path.exists(report_path):
+        os.makedirs(report_path)
+    
+    # 2. Pembuatan File Config Baru
+    new_config_name = f"cfg_{name}.txt"
+    try:
         with open(BASE_FILE, 'r') as f:
             lines = f.readlines()
         
-        new_config_name = f"cfg_{name}.txt"
         with open(new_config_name, 'w') as f:
             for line in lines:
                 written = False
@@ -52,22 +56,51 @@ def run_all():
                         break
                 if not written:
                     f.write(line)
+    except Exception as e:
+        return f"[ERROR] Gagal membuat config {name}: {e}"
+
+    # 3. Eksekusi Java
+    log_file = f"{report_path}/sim_output.log"
+    cmd = f'java {JVM_ARGS} -cp "{CLASSPATH}" {MAIN_CLASS} -b 1 "{new_config_name}" "Report.reportDir={report_path}"'
+    
+    start_time = time.time()
+    print(f"[RUNNING] {name} (Logging to {log_file})...")
+    
+    try:
+        with open(log_file, "w") as f_log:
+            subprocess.run(cmd, shell=True, check=True, stdout=f_log, stderr=f_log)
         
-        # 3. Jalankan Java
-        print(f"[RUNNING] {name}...")
+        duration = (time.time() - start_time) / 60
+        return f"[SUCCESS] {name} selesai dalam {duration:.2f} menit."
+    except subprocess.CalledProcessError as e:
+        return f"[FAILED] {name} error (Cek log: {log_file})"
+    finally:
+        # Opsional: Hapus config temporary jika ingin bersih-bersih
+        if os.path.exists(new_config_name):
+            os.remove(new_config_name)
+
+def run_all():
+    if not os.path.exists(BASE_FILE):
+        print(f"Error: File {BASE_FILE} tidak ditemukan!")
+        return
+
+    if not os.path.exists(BASE_REPORT_DIR):
+        os.makedirs(BASE_REPORT_DIR)
+
+    print(f"--- MEMULAI SIMULASI PARALEL (Workers: {MAX_WORKERS}) ---")
+    
+    # Menggunakan ProcessPoolExecutor untuk Queueing otomatis
+    with concurrent.futures.ProcessPoolExecutor(max_workers=MAX_WORKERS) as executor:
+        # Submit semua skenario ke antrean
+        future_to_name = {
+            executor.submit(run_scenario, name, overrides): name 
+            for name, overrides in scenarios.items()
+        }
         
-        # TRIK: Gunakan forward slash dan hilangkan Absolute Path yang terlalu panjang
-        # Kita pakai path relatif saja agar Command Line tidak terlalu panjang
-        final_report_path = report_path_raw.replace("\\", "/")
-        
-        # Bungkus seluruh argumen settings dengan tanda kutip
-        cmd = f'java {JVM_ARGS} -cp "{CLASSPATH}" {MAIN_CLASS} -b 1 "{new_config_name}" "Report.reportDir={final_report_path}"'
-        
-        try:
-            subprocess.run(cmd, shell=True, check=True)
-            print(f"[SUCCESS] {name} selesai.")
-        except subprocess.CalledProcessError as e:
-            print(f"[FAILED] {name} error: {e}")
+        # Ambil hasil saat selesai
+        for future in concurrent.futures.as_completed(future_to_name):
+            result = future.result()
+            print(result)
 
 if __name__ == "__main__":
-    run_all()
+    run_all()

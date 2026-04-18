@@ -3,6 +3,7 @@ package routing;
 import core.*;
 import java.util.*;
 import reinforcement.*;
+import report.RewardTimeReport;
 
 /**
  * CCRouting - Optimized ORQLCI Implementation.
@@ -79,7 +80,7 @@ public class CCRouting extends QLearningRouter {
     }
 
     protected void initQL() {
-        this.explorationPolicy = new EpsilonGreedyExploration(0.989);
+        this.explorationPolicy = new EpsilonGreedyExploration(0.1);
         this.ql = new QLearning(totalState, totalAction, this.explorationPolicy, false);
         this.visitCount = new LinkedHashMap<>();
     }
@@ -215,11 +216,36 @@ public class CCRouting extends QLearningRouter {
                     this.ql.setDiscountFactorDynamic(baseDiscountGamma, bf);
 
                     // Update: s_sekarang (0-2), action (alamat node tetangga)
-                    this.ql.UpdateState(destAddr, s, otherAddr, reward, neighborMaxQPrime, this, other);
+                    double[] metrics = this.ql.UpdateState(destAddr, s, otherAddr, reward, neighborMaxQPrime, this, other);
+                    RewardTimeReport.addReward(s, metrics[0], metrics[1], metrics[2]);
                 }
                 dests.clear(); // Bersihkan setelah reward diproses
             }
         }
+    }
+
+    @Override
+    protected Connection exchangeDeliverableMessages() {
+        List<Connection> connections = getConnections();
+        if (connections.isEmpty()) return null;
+
+        @SuppressWarnings(value = "unchecked")
+        Tuple<Message, Connection> t = tryMessagesForConnected(sortByQueueMode(getMessagesForConnected()));
+
+        if (t != null) {
+            Message m = t.getKey();
+            DTNHost other = t.getValue().getOtherNode(getHost());
+            this.pendingRewards.get(other.getAddress()).add(m.getTo().getAddress());
+            return t.getValue(); // started transfer
+        }
+
+        // ask messages from connected
+        for (Connection con : connections) {
+            if (con.getOtherNode(getHost()).requestDeliverableMessages(con)) {
+                return con;
+            }
+        }
+        return null;
     }
 
     private void tryOtherMessage() {

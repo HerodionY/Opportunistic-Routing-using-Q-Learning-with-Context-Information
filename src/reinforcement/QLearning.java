@@ -98,8 +98,9 @@ public class QLearning {
     /**
      * Persamaan (5) & (9): Q-Value Update Rule.
      * Q_new = (1-alpha)*Q_old + alpha * [Reward + gamma_d * max_Q_prime]
+     * @return double[] berisi {reward, tdTarget, updatedQ}
      */
-    public void UpdateState(int destination, int state, int action, double reward,
+    public double[] UpdateState(int destination, int state, int action, double reward,
             double neighborMaxQPrime, QLearningRouter router, DTNHost pendingHost) {
 
         initDestinationIfNeeded(destination);
@@ -109,13 +110,16 @@ public class QLearning {
         // Jika sampai ke tujuan (reward 1.0), tidak ada langkah masa depan
         // (futureComponent = 0)
         double futureComponent = (reward >= 1.0) ? 0.0 : (discountFactor * neighborMaxQPrime);
+        double tdTarget = reward + futureComponent;
 
         // Eksekusi Rumus Bellman yang dimodifikasi
         double currentQ = table[state][action];
-        double updatedQ = (1.0 - learningRate) * currentQ + (learningRate * (reward + futureComponent));
+        double updatedQ = (1.0 - learningRate) * currentQ + (learningRate * tdTarget);
 
         // Update Tabel
         table[state][action] = updatedQ;
+
+        return new double[] { reward, tdTarget, updatedQ };
     }
 
     public void ageQTable() {

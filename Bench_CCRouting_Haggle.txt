@@ -1,0 +1,84 @@
+#
+# Configuration for ORQLCI - Haggle (Infocom 5) Trace
+# Total Nodes: 41 | Duration: ~3 Days | Trace-Based
+#
+
+## Scenario settings
+Scenario.name = ORQLCI_Haggle_Infocom5_Final
+Scenario.simulateConnections = false
+Scenario.updateInterval = 1
+# Duration for Haggle 3 / Infocom 5
+Scenario.endTime = 274883
+
+## Interface-specific settings
+btInterface.type = SimpleBroadcastInterface
+btInterface.transmitSpeed = 250k
+btInterface.transmitRange = 10
+btInterface.scanInterval = 120
+
+# Define number of node groups
+Scenario.nrofHostGroups = 1
+
+## Common settings for all groups
+Group.movementModel = StationaryMovement
+# SWITCH TO ORQLCI
+Group.router = CCRouting
+# Buffer 10MB sesuai settingan Haggle kamu
+Group.bufferSize = 10M
+Group.nrofInterfaces = 1
+Group.interface1 = btInterface
+# TTL 360 menit (6 jam)
+Group.msgTtl = 360
+
+# --- NODE DISTRIBUTIONS ---
+Group1.groupID = P
+Group1.nrofHosts = 41
+Group1.nodeLocation = 10, 10
+
+## CCRouting (ORQLCI) settings
+# Karena Haggle lebih padat, kita set update AI tiap 5 menit (300 detik)
+CCRouting.updateInterval = 300
+# State: 3 (Lega, Sedang, Kritis)
+CCRouting.totalState = 3
+# PENTING: Action harus sama dengan jumlah host (41)
+CCRouting.totalAction = 41
+
+# Parameter Tuning RL
+CCRouting.baseDiscountGamma = 0.6
+CCRouting.learningCoeff = 0.8
+
+## Event generators
+Events.nrof = 2
+
+# Event 1: Load Haggle Trace
+Events1.class = ExternalEventsQueue
+Events1.filePath = Haggle3-Infocom5.csv
+
+# Event 2: Message Generator
+Events2.class = MessageEventGenerator
+# Interval sesuai settingan kamu (~3 pesan per jam)
+Events2.interval = 1160, 1240
+Events2.size = 250k, 300k
+# Range host 0 - 40
+Events2.hosts = 0, 40
+Events2.prefix = M
+Events2.time = 0, 253283
+
+## Movement model settings
+MovementModel.rngSeed = 1
+MovementModel.worldSize = 100, 100
+
+## Reports
+Report.nrofReports = 4
+Report.warmup = 1
+# Directory khusus untuk Haggle ORQLCI
+Report.reportDir = reports/data_skripsi/Haggle/1/
+Report.report1 = MessageStatsReport
+Report.report2 = PerformanceReport
+Report.report3 = MessageStatsTimeReport
+# Menambahkan report yang kamu pakai sebelumnya
+Report.report4 = ClosenessNodeTiapWaktuReport
+
+## Optimization settings
+Optimization.cellSizeMult = 5
+Optimization.randomizeUpdateOrder = true

@@ -30,7 +30,7 @@ Group.nrofInterfaces = 1
 Group.interface1 = btInterface
 Group.speed = 0.5, 1.5
 # CRITICAL: Message lifetime 300 minutes (5 hours) sesuai gambar parameter paper
-Group.msgTtl = 300
+Group.msgTtl = 4320
 
 # --- NODE DISTRIBUTIONS (Total 200) ---
 Group1.groupID = p
@@ -57,8 +57,8 @@ CCRouting.totalState = 3
 CCRouting.totalAction = 200
 
 # Parameter Tuning RL
-CCRouting.baseDiscountGamma = 0.6
-CCRouting.learningCoeff = 0.8
+CCRouting.baseDiscountGamma = 0.9
+CCRouting.learningCoeff = 0.9
 
 ## Message creation parameters
 Events.nrof = 1
@@ -86,7 +86,7 @@ MapBasedMovement.mapFile4 = data/shops.wkt
 Report.nrofReports = 4
 Report.warmup = 0
 # Directory khusus untuk hasil revisi
-Report.reportDir = reports/ORQLCI_Final_StateAware/
+Report.reportDir = reports/data_skripsi/ShortestPathMapBasedMovement/1/
 Report.report1 = MessageStatsReport
 Report.report2 = ContactTimesReport
 Report.report3 = PerformanceReport

@@ -1,0 +1,11 @@
+Performance Report for scenario Prophet_StateAware_Replication
+Simulation time: 43200.1000
+
+Delivery Ratio: 0.5931
+Overhead Ratio: 60.2542
+Average Latency: 6330.3519
+
+Router used: ProphetRouter
+Created Messages: 2202
+Relayed Messages: 79998
+Delivered Messages: 1306

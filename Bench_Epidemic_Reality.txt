@@ -1,5 +1,10 @@
+#
+# Configuration for Epidemic (Reality Trace - Fair Comparison with CCRouting & Prophet)
+# Dataset: MIT Reality Mining | Nodes: 250 | Duration: ~19.6 hari
+#
+
 ## Scenario settings
-Scenario.name = Reality_ORQLCI_Final
+Scenario.name = Reality_Epidemic_Baseline
 Scenario.simulateConnections = false
 Scenario.updateInterval = 1
 Scenario.endTime = 1698181
@@ -13,9 +18,9 @@ btInterface.scanInterval = 120
 ## Group settings
 Scenario.nrofHostGroups = 1
 
-# StationaryMovement = node diam, pergerakan 100% dari trace file
+# WAJIB StationaryMovement untuk Reality trace
 Group.movementModel = StationaryMovement
-Group.router = CCRouting
+Group.router = EpidemicRouter
 Group.bufferSize = 100M
 Group.nrofInterfaces = 1
 Group.interface1 = btInterface
@@ -25,14 +30,12 @@ Group1.groupID = R
 Group1.nrofHosts = 250
 Group1.nodeLocation = 1, 1
 
-## CCRouting Settings
-CCRouting.updateInterval = 900
-CCRouting.totalState = 250
-CCRouting.totalAction = 250
-CCRouting.baseDiscountGamma = 0.8
-CCRouting.learningCoeff = 0.9
+## EpidemicRouter
+# Epidemic tidak punya parameter tambahan khusus,
+# dia flood semua pesan ke semua node yang ditemui
+# → Ini yang menjadikannya upper-bound benchmark
 
-## Events
+## Events (IDENTIK dengan CCRouting & Prophet)
 Events.nrof = 2
 
 Events1.class = ExternalEventsQueue
@@ -43,20 +46,18 @@ Events2.interval = 290, 310
 Events2.size = 500k
 Events2.hosts = 0, 249
 Events2.prefix = M
-# ✅ DIPERBAIKI: Durasi disesuaikan dengan endTime trace
 Events2.time = 0, 1698181
 
-## Movement Model
+## Movement Model (IDENTIK dengan CCRouting & Prophet)
 MovementModel.rngSeed = 1
 MovementModel.worldSize = 100, 100
 
-## Reports
-Report.nrofReports = 2
+## Reports (IDENTIK dengan CCRouting & Prophet)
+Report.nrofReports = 1
 Report.warmup = 1
-Report.reportDir = reports_skripsi/reality/ORQLCI/
+Report.reportDir = reports_skripsi/reality/Epidemics/
 Report.report1 = MessageStatsReport
-Report.report2 = InterestReport
 
-## Optimization
+## Optimization (IDENTIK dengan CCRouting & Prophet)
 Optimization.cellSizeMult = 5
 Optimization.randomizeUpdateOrder = true

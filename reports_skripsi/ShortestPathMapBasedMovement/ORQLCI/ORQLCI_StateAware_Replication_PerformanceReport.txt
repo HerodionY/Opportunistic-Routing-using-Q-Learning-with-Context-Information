@@ -1,0 +1,11 @@
+Performance Report for scenario ORQLCI_StateAware_Replication
+Simulation time: 43200.1000
+
+Delivery Ratio: 22.2044
+Overhead Ratio: 0.2398
+Average Latency: 7908.0914
+
+Router used: CCRouting
+Created Messages: 2202
+Relayed Messages: 60618
+Delivered Messages: 48894

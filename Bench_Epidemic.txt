@@ -73,7 +73,7 @@ MapBasedMovement.mapFile4 = data/shops.wkt
 Report.nrofReports = 4
 Report.warmup = 0
 # Directory khusus untuk hasil revisi
-Report.reportDir = reports/Epidemic_Final_StateAware/
+Report.reportDir = reports_skripsi/ShortestPathMapBasedMovement/Epidemic/
 Report.report1 = MessageStatsReport
 Report.report2 = ContactTimesReport
 Report.report3 = PerformanceReport

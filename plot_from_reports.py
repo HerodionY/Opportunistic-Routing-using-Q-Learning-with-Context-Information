@@ -105,7 +105,11 @@ def plot_comparison(protocols, delivery_data, overhead_data, latency_data, drop_
     plt.tight_layout(rect=[0, 0.03, 1, 0.95])
 
     # Simpan hasil plot
-    output_filename = "reports/chart/routing_comparison_from_report.png"
+    output_filename = "reports_skripsi/chart/Reality_Buffer100MB.png"
+    output_directory = os.path.dirname(output_filename)
+    if not os.path.exists(output_directory):
+        os.makedirs(output_directory)
+
     plt.savefig(output_filename, dpi=300)
     print(
         f"\n[SUKSES] Grafik berhasil di-generate dan disimpan sebagai '{os.path.abspath(output_filename)}'"
@@ -114,10 +118,16 @@ def plot_comparison(protocols, delivery_data, overhead_data, latency_data, drop_
 
 if __name__ == "__main__":
     print("=== Skrip Plotting Otomatis dari MessageStatsReport ===")
+    # report_files = {
+    #     "ORQLCI": "reports_skripsi/ShortestPathMapBasedMovement/ORQLCI/ORQLCI_StateAware_Replication_MessageStatsReport.txt",
+    #     "Epidemic": "reports_skripsi/ShortestPathMapBasedMovement/Epidemic/Epidemic_StateAware_Replication_MessageStatsReport.txt",
+    #     "Prophet": "reports_skripsi/ShortestPathMapBasedMovement/Prophet/Prophet_StateAware_Replication_MessageStatsReport.txt",
+    # }
+
     report_files = {
-        "ORQLCI": "reports/ORQLCI_Final_StateAware/ORQLCI_StateAware_Replication_MessageStatsReport.txt",
-        "Epidemic": "reports/Epidemic_Final_StateAware/Epidemic_StateAware_Replication_MessageStatsReport.txt",
-        "Prophet": "reports/Prophet_Final_StateAware/Prophet_StateAware_Replication_MessageStatsReport.txt",
+        "ORQLCI": "reports_skripsi/reality/ORQLCI/Reality_ORQLCI_Final_MessageStatsReport.txt",
+        "Epidemic": "reports_skripsi/reality/Epidemics/Reality_Epidemic_Baseline_MessageStatsReport.txt",
+        "Prophet": "reports_skripsi/reality/Prophet/Reality_Prophet_Baseline_MessageStatsReport.txt",
     }
 
     protocols = list(report_files.keys())

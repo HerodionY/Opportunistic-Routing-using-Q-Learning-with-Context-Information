@@ -1,0 +1,20 @@
+Message stats for scenario Epidemic_StateAware_Replication
+sim_time: 43200.1000
+created: 2202
+started: 151035
+relayed: 83061
+aborted: 67966
+dropped: 74275
+removed: 0
+delivered: 1489
+delivery_prob: 0.6762
+response_prob: 0.0000
+overhead_ratio: 54.7831
+latency_avg: 6808.7346
+latency_med: 6187.2000
+hopcount_avg: 2.5097
+hopcount_med: 2
+buffertime_avg: 4924.9850
+buffertime_med: 4286.6000
+rtt_avg: NaN
+rtt_med: NaN

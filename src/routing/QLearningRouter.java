@@ -2,345 +2,320 @@ package routing;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 
 import core.Connection;
 import core.DTNHost;
 import core.Message;
-import core.MessageListener;
 import core.Settings;
 import core.SimClock;
-import reinforcement.BoltzmannExploration;
-import reinforcement.IExplorationPolicy;
 import routing.community.Duration;
 import core.Tuple;
-import core.SimError;
-import core.Application;
 
+/**
+ * QLearningRouter — Abstract base class untuk ORQLCI routing.
+ *
+ * Bertanggung jawab atas:
+ * - Struktur Q-Table: qvalues[dest][relay] sesuai notasi Qd(s,x) di paper
+ * - Operasi Q-Table: updateQDirect (Eq.10), updateQRelay (Eq.9),
+ * ageQTable (Eq.11), getNeighborMaxQPrime (Eq.8)
+ * - Pencatatan connection history (startTimestamps, connHistory)
+ * - Topic assignment untuk InterestReport
+ *
+ * Referensi: Liu et al., "Opportunistic Routing using Q-Learning
+ * with Context Information", Section 3.2
+ */
 public abstract class QLearningRouter extends ActiveRouter {
+
 	public static final String MESSAGE_TOPICS_S = "topic";
 
-	// amount of possible states
-	private int states;
-	// amount of possible actions
-	private int actions;
-	// q-values
-	private double[][] qvalues;
-	// exploration policy
-	private BoltzmannExploration explorationPolicy;
+	// -------------------------------------------------------------------------
+	// Q-TABLE
+	// Dimensi: qvalues[d][x] ≡ Qd(s, x) di paper
+	// d = alamat destination node (0 .. totalDest-1)
+	// x = alamat relay/action node (0 .. totalAction-1)
+	// State 's' (buffer level) di-encode di CCRouting, tidak masuk indeks tabel.
+	// -------------------------------------------------------------------------
+	protected double[][] qvalues;
+	protected int totalDest; // diisi oleh CCRouting dari config totalState
+	protected int totalAction; // diisi oleh CCRouting dari config totalAction
 
-	// discount factor
-	private double discountFactor = 1;
-	// learning rate
-	private double learningRate = 0.25;
-	// growth constant
-	private double growthConstant = 100;
+	// -------------------------------------------------------------------------
+	// LEARNING PARAMETERS — nilai default sesuai paper Section 4.1
+	// Dapat di-override oleh CCRouting sesuai config.
+	// -------------------------------------------------------------------------
+	protected double learningRate = 0.8; // α
+	protected double discountFactor = 0.6; // γ (nilai statis; γd dihitung di CCRouting)
+	protected double agingOmega = 0.98; // ω untuk Eq.11
 
+	// Timestamp terakhir Q-table di-age, untuk menghitung t pada Eq.11
+	protected double lastQAgeTime = 0.0;
+
+	// -------------------------------------------------------------------------
+	// CONNECTION HISTORY
+	// -------------------------------------------------------------------------
 	protected Map<DTNHost, Double> startTimestamps;
 	protected Map<DTNHost, List<Duration>> connHistory;
 
+	// =========================================================================
+	// CONSTRUCTOR
+	// =========================================================================
+
 	public QLearningRouter(Settings s) {
 		super(s);
-		this.startTimestamps = new HashMap<DTNHost, Double>();
-		this.connHistory = new HashMap<DTNHost, List<Duration>>();
-		this.explorationPolicy = new BoltzmannExploration(1);
-		// create Q-array
-		this.states = 5;
-		this.actions = 5;
+		this.startTimestamps = new HashMap<>();
+		this.connHistory = new HashMap<>();
+		// totalDest & totalAction di-set oleh CCRouting sebelum initQTable()
+		this.totalDest = 5;
+		this.totalAction = 5;
+		initQTable();
+	}
 
-		qvalues = new double[states][];
-		for (int i = 0; i < states; i++) {
-			qvalues[i] = new double[actions];
+	protected QLearningRouter(QLearningRouter r) {
+		super(r);
+		// startTimestamps & connHistory TIDAK di-share antar node
+		this.startTimestamps = new HashMap<>();
+		this.connHistory = new HashMap<>();
+		this.totalDest = r.totalDest;
+		this.totalAction = r.totalAction;
+		this.learningRate = r.learningRate;
+		this.discountFactor = r.discountFactor;
+		this.agingOmega = r.agingOmega;
+		this.lastQAgeTime = 0.0;
+		initQTable(); // Q-table baru, tidak di-share
+	}
+
+	// =========================================================================
+	// Q-TABLE OPERATIONS
+	// =========================================================================
+
+	/**
+	 * Inisialisasi Q-Table dengan semua nilai = 0.
+	 * Dipanggil setelah totalDest & totalAction di-set oleh CCRouting.
+	 */
+	protected void initQTable() {
+		qvalues = new double[totalDest][];
+		for (int i = 0; i < totalDest; i++) {
+			qvalues[i] = new double[totalAction];
 		}
-
 	}
 
 	/**
-	 * Copy constructor.
-	 * 
-	 * @param r The router prototype where setting values are copied from
+	 * Membaca Qd(s,x) = qvalues[destAddr][actionAddr].
+	 * Return 0.0 jika indeks di luar batas.
 	 */
-	protected QLearningRouter(QLearningRouter r) {
-		super(r);
-		startTimestamps = r.startTimestamps;
-		// connHistory = new HashMap<>();
-		connHistory = r.connHistory;
-		explorationPolicy = r.explorationPolicy;
-
-		states = 5;
-		actions = 5;
-		// qvalues = r.qvalues;
-		qvalues = new double[states][];
-		for (int i = 0; i < states; i++) {
-			qvalues[i] = new double[actions];
-		}
+	public double getQV(int destAddr, int actionAddr) {
+		if (destAddr < 0 || destAddr >= totalDest)
+			return 0.0;
+		if (actionAddr < 0 || actionAddr >= totalAction)
+			return 0.0;
+		return qvalues[destAddr][actionAddr];
 	}
 
-	@Override
-	public boolean createNewMessage(Message msg) {
-		makeRoomForNewMessage(msg.getSize());
+	/**
+	 * Eq.10 — Update Q saat encountered node x ADALAH destination d.
+	 *
+	 * Qd(s,x) ← (1-α) × Qd(s,x) + α × Rd(s,x)
+	 * Rd(s,x) = 1 (karena x == d, Eq.6)
+	 *
+	 * @param destAddr  alamat d (destination)
+	 * @param relayAddr alamat x (== destAddr)
+	 */
+	public void updateQDirect(int destAddr, int relayAddr) {
+		if (destAddr < 0 || destAddr >= totalDest)
+			return;
+		if (relayAddr < 0 || relayAddr >= totalAction)
+			return;
 
-		msg.setTtl(this.msgTtl);
-
-		// Set topic to new message
-		List<Boolean> topics = new ArrayList();
-
-		int i = 0;
-		while (i < 5) {
-			topics.add(Math.random() < 0.5);
-			i++;
-		}
-
-		msg.addProperty(MESSAGE_TOPICS_S, topics);
-		return super.createNewMessage(msg);
+		double oldQ = qvalues[destAddr][relayAddr];
+		// Eq.10: reward = 1, tidak ada discount term
+		qvalues[destAddr][relayAddr] = (1.0 - learningRate) * oldQ + learningRate * 1.0;
 	}
 
-	@Override
-	public Message messageTransferred(String id, DTNHost from) {
-		Message incoming = removeFromIncomingBuffer(id, from);
+	/**
+	 * Eq.9 — Update Q saat encountered node x BUKAN destination d.
+	 *
+	 * Qd(s,x) ← (1-α) × Qd(s,x) + α × γd(s,x) × max_y(Qd(x,y)×P(x,y))
+	 *
+	 * Catatan: γd(s,x) = γ × BFx (Eq.7) SUDAH dihitung oleh pemanggil
+	 * (CCRouting) dan dimasukkan sebagai parameter dynamicDiscount,
+	 * sehingga TIDAK ada perkalian BFx lagi di sini.
+	 *
+	 * @param destAddr        alamat d
+	 * @param relayAddr       alamat x (relay, bukan destination)
+	 * @param dynamicDiscount γd(s,x) = γ × BFx, hasil Eq.7
+	 * @param neighborMaxQP   max_y(Qd(x,y)×P(x,y)), hasil Eq.8
+	 */
+	public void updateQRelay(int destAddr, int relayAddr,
+			double dynamicDiscount, double neighborMaxQP) {
+		if (destAddr < 0 || destAddr >= totalDest)
+			return;
+		if (relayAddr < 0 || relayAddr >= totalAction)
+			return;
 
-		if (incoming == null) {
-			throw new SimError("No message with ID " + id + " in the incoming " +
-					"buffer of " + getHost());
-		}
-
-		incoming.setReceiveTime(SimClock.getTime());
-
-		Message outgoing = incoming;
-		for (Application app : getApplications(incoming.getAppID())) {
-			// Note that the order of applications is significant
-			// since the next one gets the output of the previous.
-			outgoing = app.handle(outgoing, getHost());
-			if (outgoing == null)
-				break; // Some app wanted to drop the message
-		}
-
-		Message aMessage = (outgoing == null) ? (incoming) : (outgoing);
-
-		boolean isFinalRecipient = isFinalDest(aMessage, getHost());
-		boolean isFirstDelivery = isFinalRecipient &&
-				!isDeliveredMessage(aMessage);
-
-		if (outgoing != null && !isFinalRecipient) {
-			// not the final recipient and app doesn't want to drop the message
-			// -> put to buffer
-			addToMessages(aMessage, false);
-		}
-
-		if (isFirstDelivery) {
-			this.deliveredMessages.put(id, aMessage);
-		}
-
-		for (MessageListener ml : this.mListeners) {
-			ml.messageTransferred(aMessage, from, getHost(),
-					isFirstDelivery);
-		}
-
-		Message msg = aMessage;
-		List<Boolean> topicMsg = (ArrayList) msg.getProperty(MESSAGE_TOPICS_S);
-		double connectionTime = 0.0;
-
-		if (startTimestamps.containsKey(from)) {
-			double start = startTimestamps.get(from);
-			double curTime = SimClock.getTime();
-			connectionTime = curTime - start;
-
-			int i = 0;
-			boolean exist = false;
-			double decay = 0.9;
-			double disconnectionTime = 0;
-
-			if (connHistory.containsKey(from) && !connHistory.get(from).isEmpty()) {
-				// if (connHistory.containsKey(from)) {
-				int conSize = connHistory.get(from).size();
-				double end = connHistory.get(from).get(conSize - 1).end;
-				disconnectionTime = curTime - end;
-			}
-
-			for (Boolean topic : topicMsg) {
-				if (getHost().getSocialProfile().get(i) > 0 && topic == true) {
-					// Check if topic from message related to node topics
-					exist = true;
-				} else {
-
-					// The interest weights, i.e. Q-values of certain topics for
-					// a node are aged when no other node holding messages
-					// with those topics are in connection range. The aging is
-					// measured as (Decay Factor)(Disconnection Time), where
-					// Decay Factor is a value in a range [0, 1].
-
-					if (connHistory.containsKey(from)) {
-						double agedQValue = getHost().getSocialProfile().get(i)
-								- Math.pow(decay, disconnectionTime);
-						if (agedQValue < 0.5 && getHost().getSocialProfileOI().get(i)) {
-
-							getHost().getSocialProfile().set(i, 0.5);
-							// System.out.println("Decay OI" + agedQValue);
-
-						} else if (agedQValue < 0.0) {
-							getHost().getSocialProfile().set(i, 0.0);
-							// System.out.println("Decay TI" + agedQValue);
-
-						} else {
-							getHost().getSocialProfile().set(i, agedQValue);
-							// System.out.println("Decay" + agedQValue);
-						}
-					}
-				}
-				i++;
-
-			}
-
-			if (exist) {
-				i = 0;
-				for (Boolean topic : topicMsg) {
-					if (topic) {
-						int action = GetAction(i);
-						double reward = connectionTime / growthConstant;
-						UpdateState(i, action, reward, i, getHost());
-						// System.out.println("Updated" + getHost());
-					}
-					i++;
-				}
-			}
-		}
-		// System.out.println(getHost().getSocialProfile());
-		return msg;
+		double oldQ = qvalues[destAddr][relayAddr];
+		// Eq.9: reward = 0, sehingga suku reward gugur
+		qvalues[destAddr][relayAddr] = (1.0 - learningRate) * oldQ
+				+ learningRate * dynamicDiscount * neighborMaxQP;
 	}
 
-	@Override
-	public abstract QLearningRouter replicate();
+	/**
+	 * Eq.11 — Aging seluruh Q-Table berdasarkan waktu nyata yang berlalu.
+	 *
+	 * Qd(s,x) = Qd(s,x)_old × ω^t
+	 * t = (now - lastQAgeTime) / SEC_IN_TU (jumlah time unit)
+	 *
+	 * Dipanggil secara periodik dari CCRouting.update().
+	 *
+	 * @param secInTimeUnit satuan waktu (detik per time unit), sesuai SEC_IN_TU
+	 */
+	public void ageQTable(int secInTimeUnit) {
+		double now = SimClock.getTime();
+		double timeDiff = (now - lastQAgeTime) / secInTimeUnit;
+		if (timeDiff <= 0)
+			return;
 
+		double mult = Math.pow(agingOmega, timeDiff);
+		for (int d = 0; d < totalDest; d++) {
+			for (int x = 0; x < totalAction; x++) {
+				qvalues[d][x] *= mult;
+			}
+		}
+		lastQAgeTime = now;
+	}
+
+	/**
+	 * Eq.8 — Menghitung max_y∈Nx [ Qd(x,y) × P(x,y) ].
+	 *
+	 * Dipanggil oleh node x (router tetangga) untuk menyediakan data
+	 * yang dibutuhkan node s dalam Eq.9.
+	 *
+	 * @param destAddr       alamat destination d
+	 * @param encounterProbs Map<nodeAddress, P(x,y)> milik node x
+	 * @return nilai maksimum Qd(x,y) × P(x,y) di antara semua y
+	 */
+	public double getNeighborMaxQPrime(int destAddr,
+			Map<Integer, Double> encounterProbs) {
+		if (destAddr < 0 || destAddr >= totalDest)
+			return 0.0;
+
+		double maxVal = 0.0;
+		for (int y = 0; y < totalAction; y++) {
+			double prob = encounterProbs.getOrDefault(y, 0.0);
+			double val = qvalues[destAddr][y] * prob;
+			if (val > maxVal)
+				maxVal = val;
+		}
+		return maxVal;
+	}
+
+	/**
+	 * Cek apakah Q-table untuk destination ini punya setidaknya satu
+	 * entry bernilai > 0 (artinya node sudah pernah belajar tentang dest ini).
+	 */
+	public boolean hasQEntry(int destAddr) {
+		if (destAddr < 0 || destAddr >= totalDest)
+			return false;
+		for (int x = 0; x < totalAction; x++) {
+			if (qvalues[destAddr][x] > 0.0)
+				return true;
+		}
+		return false;
+	}
+
+	/**
+	 * Greedy: mengembalikan alamat node dengan Q-value tertinggi
+	 * untuk destination tertentu. a* = argmax_x Qd(s,x).
+	 *
+	 * @return alamat relay terbaik, atau -1 jika destAddr invalid
+	 */
+	public int getBestAction(int destAddr) {
+		if (destAddr < 0 || destAddr >= totalDest)
+			return -1;
+
+		int bestAction = 0;
+		double bestVal = qvalues[destAddr][0];
+		for (int x = 1; x < totalAction; x++) {
+			if (qvalues[destAddr][x] > bestVal) {
+				bestVal = qvalues[destAddr][x];
+				bestAction = x;
+			}
+		}
+		return bestAction;
+	}
+
+	// =========================================================================
+	// CONNECTION HISTORY
+	// =========================================================================
+
+	/**
+	 * Mencatat waktu mulai & akhir koneksi ke connHistory.
+	 * Dipanggil oleh CCRouting.changedConnection() via super.
+	 */
 	@Override
 	public void changedConnection(Connection con) {
 		DTNHost peer = con.getOtherNode(getHost());
 
 		if (con.isUp()) {
-			QLearningRouter othRouter = (QLearningRouter) peer.getRouter();
-			this.startTimestamps.put(peer, SimClock.getTime());
-			othRouter.startTimestamps.put(getHost(), SimClock.getTime());
+			startTimestamps.put(peer, SimClock.getTime());
 		} else {
 			if (startTimestamps.containsKey(peer)) {
-				double time = startTimestamps.get(peer);
-				double etime = SimClock.getTime();
+				double start = startTimestamps.remove(peer);
+				double end = SimClock.getTime();
 
-				// Find or create the connection history list
-				List<Duration> history;
-				if (!connHistory.containsKey(peer)) {
-					history = new LinkedList<Duration>();
-					connHistory.put(peer, history);
-				} else
-					history = connHistory.get(peer);
-
-				// add this connection to the list
-				if (etime - time > 0)
-					history.add(new Duration(time, etime));
-
-				startTimestamps.remove(peer);
+				if (end - start > 0) {
+					connHistory.computeIfAbsent(peer, k -> new LinkedList<>())
+							.add(new Duration(start, end));
+				}
 			}
 		}
-		// }
 	}
 
-	public int GetAction(int state) {
-		return explorationPolicy.ChooseAction(qvalues[state]);
-	}
+	// =========================================================================
+	// MESSAGE CREATION (topic untuk InterestReport)
+	// =========================================================================
 
-	/**
-	 * Update Q-function's value for the previous state-action pair.
-	 * 
-	 * @param previousState Previous state.
-	 * @param action        Action, which leads from previous to the next state.
-	 * @param reward        Reward value, received by taking specified action from
-	 *                      previous state.
-	 * @param nextState     Next state.
-	 */
-	public void UpdateState(int previousState, int action, double reward, int nextState, DTNHost host) {
-		// next state's action estimations
-		double[] nextActionEstimations = qvalues[nextState];
-		// find maximum expected summary reward from the next state
-		double maxNextExpectedReward = nextActionEstimations[0];
+	@Override
+	public boolean createNewMessage(Message msg) {
+		makeRoomForNewMessage(msg.getSize());
+		msg.setTtl(this.msgTtl);
 
-		for (int i = 1; i < actions; i++) {
-			if (nextActionEstimations[i] > maxNextExpectedReward)
-				maxNextExpectedReward = nextActionEstimations[i];
+		List<Boolean> topics = new ArrayList<>();
+		for (int i = 0; i < 5; i++) {
+			topics.add(Math.random() < 0.5);
 		}
-
-		// previous state's action estimations
-		double[] previousActionEstimations = qvalues[previousState];
-		// update expexted summary reward of the previous state
-		previousActionEstimations[action] *= (1.0 - learningRate);
-		previousActionEstimations[action] += (learningRate * (reward + discountFactor * maxNextExpectedReward));
-		host.getSocialProfile().set(previousState, previousActionEstimations[action]);
-		// System.out.println(host.getSocialProfile());
+		msg.addProperty(MESSAGE_TOPICS_S, topics);
+		return super.createNewMessage(msg);
 	}
 
-	// comment code dibawah karena sudah override di CCRouting
+	// =========================================================================
+	// ABSTRACT
+	// =========================================================================
+
+	@Override
+	public abstract QLearningRouter replicate();
+
+	// update() di-override penuh oleh CCRouting; base tidak perlu logic khusus
 	@Override
 	public void update() {
 		super.update();
-
-		if (isTransferring() || !canStartTransfer()) {
-			return; // transferring, don't try other connections yet
-		}
-
-		// Try first the messages that can be delivered to final recipient
-		if (exchangeDeliverableMessages() != null) {
-			return; // started a transfer, don't try others (yet)
-		}
-
-		// then try any/all message to any/all connection
-		this.tryAllMessagesToAllConnections();
 	}
 
-	private Boolean isFinalDest(Message m, DTNHost host) {
-		List<Boolean> topicMsg = (ArrayList) m.getProperty(MESSAGE_TOPICS_S);
-		int i = 0;
-		boolean exist = false;
-		for (Boolean topic : topicMsg) {
-			if (host.getSocialProfile().get(i) > 0 && topic == true) {
-				// Check if topic from message related to node topics
-				exist = true;
-			}
-		}
-		return exist;
+	// =========================================================================
+	// GETTERS
+	// =========================================================================
+
+	public double getLearningRate() {
+		return learningRate;
 	}
 
-	protected boolean isSameInterest(Message m, DTNHost n) {
-		List<Boolean> topicMsg = (ArrayList) m.getProperty(MESSAGE_TOPICS_S);
-		List<Boolean> topicNode = n.getSocialProfileOI();
-
-		int i = 0;
-		for (Iterator<Boolean> itTop = topicMsg.iterator(); itTop.hasNext(); i++) {
-			if (itTop.next().equals(topicNode.get(i)))
-				return true;
-		}
-
-		return false;
+	public double getDiscountFactor() {
+		return discountFactor;
 	}
 
-	protected List<Double> countInterestSimilarity(Message m, DTNHost n) {
-		List<Boolean> topicMsg = (ArrayList) m.getProperty(MESSAGE_TOPICS_S);
-		List<Boolean> topicNode = n.getSocialProfileOI();
-		List<Double> weightNode = n.getSocialProfile();
-
-		List<Double> valInterest = new ArrayList<>();
-
-		Iterator<Boolean> itTop = topicMsg.iterator();
-
-		int i = 0;
-		while (itTop.hasNext()) {
-			if (itTop.next().equals(topicNode.get(i))) {
-				valInterest.add(weightNode.get(i));
-			}
-		}
-
-		return valInterest;
+	public double getAgingOmega() {
+		return agingOmega;
 	}
-
-	public abstract Map<Integer, Tuple<DTNHost, List<Integer>>> getMapWaitForReward();
 }

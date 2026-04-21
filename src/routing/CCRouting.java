@@ -5,83 +5,156 @@ import java.util.*;
 import reinforcement.*;
 
 /**
- * CCRouting - Optimized ORQLCI Implementation.
- * Perbaikan: Dynamic State (Context-Aware), Oracle Prevention,
- * dan Integrasi Fusion Score yang lebih presisi.
+ * CCRouting — Implementasi ORQLCI sesuai paper:
+ * "Opportunistic Routing using Q-Learning with Context Information"
+ * Liu et al.
+ *
+ * ═══════════════════════════════════════════════════════════════
+ * FLOW UTAMA (sesuai paper):
+ *
+ * [changedConnection — con.isUp()]
+ * 1. Eq.1 — updateEncounterProb(other)
+ * 2. Eq.3 — updateTransitivity(other)
+ * 3. Alg.1 — updateQTableOnContact(other) ← langsung saat bertemu
+ *
+ * [changedConnection — con.isDown()]
+ * 4. Hapus dari candidateReceiver
+ *
+ * [update() — setiap tick]
+ * 5. exchangeDeliverableMessages() — direct delivery prioritas utama
+ * 6. Alg.2 — tryOtherMessage() — forwarding via Q-table
+ * 7. Periodik (updateInterval):
+ * - Eq.11 — ageQTable() — aging Q-table
+ *
+ * ═══════════════════════════════════════════════════════════════
+ * RIWAYAT PERBAIKAN:
+ * [BUG-1] updateQRelay: BFx dikali dua kali → dynamicDiscount sudah = γ×BFx
+ * [BUG-2] ageQTable: t selalu 1 → dihitung dari waktu nyata (Eq.11)
+ * [BUG-3] updateTransitivity: preds routerB stale → age dulu sebelum baca
+ * [BUG-4] Q-update ditunda ke interval → sekarang langsung di changedConnection
+ * [BUG-5] ChooseAction untuk check forwarding → diganti getBestAction
+ * [BUG-6] ε = 0.989 terlalu tinggi → hampir selalu random, bukan greedy
+ * [BUG-7] Forwarding saat Q ada: ChooseAction check → logika greedy + epsilon
+ * [BUG-8] Forwarding saat Q kosong: 1/200 prob → 50% prob eksplorasi
+ * ═══════════════════════════════════════════════════════════════
  */
 public class CCRouting extends QLearningRouter {
 
-    private double updateInterval;
-    private double lastUpdateTime = 0;
+    // =========================================================================
+    // SETTINGS KEYS
+    // =========================================================================
+    private static final String CCROUTING_NS = "CCRouting";
+    private static final String UPDATE_INTERVAL_S = "updateInterval";
+    private static final String TOTAL_STATE_S = "totalState";
+    private static final String TOTAL_ACTION_S = "totalAction";
+    private static final String BASE_GAMMA_S = "baseDiscountGamma";
+    private static final String LEARNING_COEFF_S = "learningCoeff";
 
-    // Q-Learning Core
-    private QLearning ql;
-    private IExplorationPolicy explorationPolicy;
-    private int totalState;
-    private int totalAction;
-    private Map<DTNHost, Integer> visitCount;
+    // =========================================================================
+    // PROPHET PARAMETERS (Section 3.1)
+    // =========================================================================
+    private static final double P_INIT = 0.75; // Pinit, Eq.1
+    private static final double GAMMA_P = 0.98; // η decay factor, Eq.2
+    private static final double BETA = 0.25; // β transitivity factor, Eq.3
+    private static final int SEC_IN_TU = 30; // 1 time unit = 30 detik
 
-    // PRoPHET Parameters
-    private int secondsInTimeUnit = 30;
-    private double beta = 0.25;
-    private double lastAgeUpdate = 0.0;
+    /** P(this, x): encounter probability node ini ke tiap node lain */
     private Map<DTNHost, Double> preds;
-    private double pInit = 0.75;
-    private double gammaProphet = 0.98;
+    private double lastAgeUpdate = 0.0;
 
-    // ORQLCI Fusion Weights
-    private final double fusionWeightRL = 0.8;
-    private final double fusionWeightProphet = 0.1;
-    private final double fusionWeightBuffer = 0.1;
+    // =========================================================================
+    // LEARNING PARAMETERS
+    // =========================================================================
+    /** γ konstan, dipakai untuk menghitung γd(s,x) = γ × BFx (Eq.7) */
+    private double baseDiscountGamma;
+    /** α awal; akan disesuaikan adaptif per encounter */
+    private double learningCoeff;
 
-    // Learning Parameters
-    private double baseDiscountGamma = 0.6;
-    private double learningCoeff = 0.8;
+    // =========================================================================
+    // FUSION SCORE WEIGHTS
+    // Dipakai untuk sorting kandidat relay (bukan untuk Q-update)
+    // =========================================================================
+    private static final double W_RL = 0.8;
+    private static final double W_PROPHET = 0.1;
+    private static final double W_BUFFER = 0.1;
 
-    // Data Structures
-    // Sekarang menggunakan Map<Integer, List<Integer>> untuk menghindari Overwrite
-    // Bug
-    private Map<Integer, List<Integer>> pendingRewards;
+    // =========================================================================
+    // EXPLORATION POLICY
+    // =========================================================================
+    private EpsilonGreedyExploration epsilonGreedy;
+
+    /**
+     * [FIX-BUG-6] ε = 0.1 → 90% greedy, 10% eksplorasi.
+     * Sebelumnya 0.989 → 98.9% random = tidak pernah greedy.
+     * Nilai kecil ini lebih sesuai untuk fase exploitation setelah Q konvergen.
+     */
+    private static final double EPSILON = 0.1;
+
+    /**
+     * Probabilitas forward saat Q-table belum punya entry untuk destination.
+     * [FIX-BUG-8] Sebelumnya 1/totalAction (~0.5%) → terlalu kecil.
+     * Nilai 0.5 memberi kesempatan eksplorasi yang wajar di awal simulasi.
+     */
+    private static final double EXPLORE_PROB = 0.5;
+
+    // =========================================================================
+    // TIMING
+    // =========================================================================
+    private double updateInterval;
+    private double lastUpdateTime = 0.0;
+
+    // =========================================================================
+    // DATA STRUCTURES
+    // =========================================================================
+    /** Koneksi aktif saat ini */
     private List<Connection> candidateReceiver;
 
-    private static final String CCROUTING_NS = "CCRouting";
-    private static final String UPDATE_INTERVAL = "updateInterval";
-    private static final String TOTAL_STATE = "totalState";
-    private static final String TOTAL_ACTION = "totalAction";
+    /**
+     * pendingRewards: otherNodeAddr → List<destAddr>
+     * Destination dari pesan yang sudah berhasil dikirim ke otherNode,
+     * menunggu Q-update saat next encounter dengan node tersebut.
+     */
+    private Map<Integer, List<Integer>> pendingRewards;
+
+    /**
+     * visitCount: DTNHost → jumlah total encounter
+     * Adaptive learning rate: α = learningCoeff / visitCount
+     * Makin sering ketemu, α makin kecil → Q makin stabil
+     */
+    private Map<DTNHost, Integer> visitCount;
+
+    // =========================================================================
+    // CONSTRUCTOR
+    // =========================================================================
 
     public CCRouting(Settings s) {
         super(s);
-        Settings ccSettings = new Settings(CCROUTING_NS);
-        updateInterval = ccSettings.getInt(UPDATE_INTERVAL);
-        totalState = ccSettings.getInt(TOTAL_STATE);
-        totalAction = ccSettings.getInt(TOTAL_ACTION);
+        Settings cc = new Settings(CCROUTING_NS);
 
+        this.updateInterval = cc.getInt(UPDATE_INTERVAL_S);
+        this.totalDest = cc.getInt(TOTAL_STATE_S); // = jumlah node
+        this.totalAction = cc.getInt(TOTAL_ACTION_S); // = jumlah node
+        this.baseDiscountGamma = cc.getDouble(BASE_GAMMA_S);
+        this.learningCoeff = cc.getDouble(LEARNING_COEFF_S);
+
+        this.learningRate = learningCoeff;
+        this.discountFactor = baseDiscountGamma;
+        this.agingOmega = GAMMA_P; // ω = η sesuai paper Section 3.2
+
+        initQTable(); // reinit dengan totalDest & totalAction yang benar
         initPreds();
-        initQL();
-
-        this.pendingRewards = new LinkedHashMap<>();
-        this.candidateReceiver = new ArrayList<>();
+        initLocal();
     }
 
     protected CCRouting(CCRouting r) {
         super(r);
         this.updateInterval = r.updateInterval;
-        this.totalState = r.totalState;
-        this.totalAction = r.totalAction;
         this.baseDiscountGamma = r.baseDiscountGamma;
         this.learningCoeff = r.learningCoeff;
 
+        initQTable();
         initPreds();
-        initQL();
-
-        this.pendingRewards = new HashMap<>();
-        this.candidateReceiver = new ArrayList<>();
-    }
-
-    protected void initQL() {
-        this.explorationPolicy = new EpsilonGreedyExploration(0.989);
-        this.ql = new QLearning(totalState, totalAction, this.explorationPolicy, false);
-        this.visitCount = new LinkedHashMap<>();
+        initLocal();
     }
 
     private void initPreds() {
@@ -89,43 +162,98 @@ public class CCRouting extends QLearningRouter {
         this.lastAgeUpdate = 0.0;
     }
 
-    // --- CONTEXT: DYNAMIC STATE CALCULATION ---
-
-    /**
-     * Menentukan State berdasarkan Buffer Factor (Self-Awareness)
-     * s0: Lega (>70%), s1: Sedang (30-70%), s2: Kritis (<30%)
-     */
-    private int calculateCurrentState() {
-        double bf = getBufferFactor(getHost());
-        if (bf > 0.7)
-            return 0;
-        if (bf > 0.3)
-            return 1;
-        return 2;
+    private void initLocal() {
+        this.epsilonGreedy = new EpsilonGreedyExploration(EPSILON);
+        this.candidateReceiver = new ArrayList<>();
+        this.pendingRewards = new LinkedHashMap<>();
+        this.visitCount = new LinkedHashMap<>();
     }
 
-    // --- PROPHET LOGIC ---
+    // =========================================================================
+    // ENCOUNTER PROBABILITY — Section 3.1
+    // =========================================================================
 
+    /**
+     * Eq.2 — Decay P(this,x) berdasarkan waktu nyata yang berlalu.
+     * P(a,b) = P(a,b)_old × η^t, t = Δtime / SEC_IN_TU
+     * Dipanggil sebelum membaca atau menulis preds.
+     */
+    private void ageDeliveryPreds() {
+        double now = SimClock.getTime();
+        double timeDiff = (now - lastAgeUpdate) / SEC_IN_TU;
+        if (timeDiff <= 0)
+            return;
+
+        double mult = Math.pow(GAMMA_P, timeDiff);
+        for (Map.Entry<DTNHost, Double> e : preds.entrySet()) {
+            e.setValue(e.getValue() * mult);
+        }
+        lastAgeUpdate = now;
+    }
+
+    /**
+     * Eq.1 — Update P(this, other) saat bertemu other.
+     * P(a,b) = P(a,b)_old + (1 - P(a,b)_old) × Pinit
+     */
+    private void updateEncounterProb(DTNHost other) {
+        ageDeliveryPreds();
+        double oldVal = preds.getOrDefault(other, 0.0);
+        preds.put(other, oldVal + (1.0 - oldVal) * P_INIT);
+    }
+
+    /**
+     * Eq.3 — Transitivity: update P(this, c) via node b.
+     * P(a,c) = P(a,c)_old + (1 - P(a,c)_old) × P(a,b) × P(b,c) × β
+     *
+     * [FIX-BUG-3] routerB.ageDeliveryPreds() dipanggil dulu → P(b,c) fresh.
+     */
+    private void updateTransitivity(DTNHost nodeB, CCRouting routerB) {
+        ageDeliveryPreds();
+        routerB.ageDeliveryPreds(); // pastikan P(b,c) sudah up-to-date
+
+        double pAB = preds.getOrDefault(nodeB, 0.0);
+        if (pAB == 0.0)
+            return;
+
+        for (Map.Entry<DTNHost, Double> entry : routerB.preds.entrySet()) {
+            DTNHost nodeC = entry.getKey();
+            if (nodeC.equals(getHost()))
+                continue;
+
+            double pBC = entry.getValue();
+            double pACold = preds.getOrDefault(nodeC, 0.0);
+            preds.put(nodeC, pACold + (1.0 - pACold) * pAB * pBC * BETA);
+        }
+    }
+
+    /** Membaca P(this, host) setelah di-age. */
     public double getPredFor(DTNHost host) {
         ageDeliveryPreds();
         return preds.getOrDefault(host, 0.0);
     }
 
-    private void ageDeliveryPreds() {
-        double currentTime = SimClock.getTime();
-        double timeDiff = (currentTime - this.lastAgeUpdate) / secondsInTimeUnit;
-        if (timeDiff <= 0)
-            return;
-
-        double mult = Math.pow(gammaProphet, timeDiff);
+    /**
+     * Map<nodeAddress, P(this,node)> untuk semua node yang dikenal.
+     * Dipakai oleh node tetangga untuk Eq.8.
+     */
+    public Map<Integer, Double> getEncounterProbMap() {
+        ageDeliveryPreds();
+        Map<Integer, Double> probMap = new HashMap<>();
         for (Map.Entry<DTNHost, Double> e : preds.entrySet()) {
-            e.setValue(e.getValue() * mult);
+            probMap.put(e.getKey().getAddress(), e.getValue());
         }
-        this.lastAgeUpdate = currentTime;
+        return probMap;
     }
 
-    // --- Perhitungan Buffer Factor (Equations 7) ---
+    // =========================================================================
+    // BUFFER FACTOR — Eq.4
+    // =========================================================================
 
+    /**
+     * Eq.4 — Rasio buffer yang masih bebas.
+     * BF = 1 - (Σ Bm) / Cinit
+     * BF tinggi = buffer lega = node layak jadi relay.
+     */
     private double getBufferFactor(DTNHost host) {
         MessageRouter router = host.getRouter();
         int cTotal = router.getBufferSize();
@@ -136,149 +264,226 @@ public class CCRouting extends QLearningRouter {
         for (Message m : router.getMessageCollection()) {
             occupied += m.getSize();
         }
-        double bf = 1.0 - ((double) occupied / cTotal);
-        return Math.max(0.0, Math.min(1.0, bf));
+        return Math.max(0.0, Math.min(1.0, 1.0 - (double) occupied / cTotal));
     }
 
+    // =========================================================================
+    // FUSION SCORE
+    // =========================================================================
+
+    /**
+     * Fusion score = 0.8×RL + 0.1×ProphetDelta + 0.1×BufferFactor
+     * Dipakai HANYA untuk sorting prioritas pesan yang sudah lolos seleksi Q.
+     * Tidak terlibat dalam Q-update.
+     */
     private double getFusionScore(Message m, DTNHost other) {
         int destAddr = m.getTo().getAddress();
-        int s = calculateCurrentState();
-        double rlScore = ql.getQV(destAddr, s, other.getAddress());
-
+        double rlScore = getQV(destAddr, other.getAddress());
         double prophetDelta = getPredFor(other) - getPredFor(m.getTo());
         double bf = getBufferFactor(other);
 
-        return (fusionWeightRL * rlScore) +
-                (fusionWeightProphet * Math.max(0, prophetDelta)) +
-                (fusionWeightBuffer * bf);
+        return (W_RL * rlScore)
+                + (W_PROPHET * Math.max(0.0, prophetDelta))
+                + (W_BUFFER * bf);
     }
 
-    // --- ROUTER INTERACTION ---
+    // =========================================================================
+    // Q-TABLE UPDATE SAAT KONEKSI — Algorithm 1
+    // =========================================================================
+
+    /**
+     * Algorithm 1 — Update Q-table segera saat bertemu node other.
+     *
+     * Untuk tiap destination d di pendingRewards[other]:
+     * other == d → Eq.10 (direct, reward = 1)
+     * other != d → Eq.9 (relay, reward = 0, pakai neighborMaxQPrime)
+     *
+     * [FIX-BUG-4] Dipanggil langsung dari changedConnection (con.isUp),
+     * bukan ditunda ke interval periodik.
+     *
+     * Adaptive α: α = learningCoeff / visitCount, min 0.01
+     */
+    private void updateQTableOnContact(DTNHost other, CCRouting otherRouter) {
+        int otherAddr = other.getAddress();
+
+        List<Integer> dests = pendingRewards.get(otherAddr);
+        if (dests == null || dests.isEmpty())
+            return;
+
+        // Adaptive learning rate
+        int visits = visitCount.getOrDefault(other, 0) + 1;
+        visitCount.put(other, visits);
+        this.learningRate = Math.max(0.01, learningCoeff / visits);
+
+        double bfOther = getBufferFactor(other);
+
+        // Eq.7 — γd(s,x) = γ × BFx
+        double dynamicDiscount = baseDiscountGamma * bfOther;
+
+        // Eq.8 — encounter prob map dari other
+        Map<Integer, Double> otherProbMap = otherRouter.getEncounterProbMap();
+
+        for (int destAddr : dests) {
+            if (otherAddr == destAddr) {
+                // Eq.10 — direct delivery
+                updateQDirect(destAddr, otherAddr);
+            } else {
+                // Eq.9 — relay
+                // [FIX-BUG-1] dynamicDiscount = γ×BFx, tidak dikali BFx lagi
+                double neighborMaxQP = otherRouter.getNeighborMaxQPrime(destAddr, otherProbMap);
+                updateQRelay(destAddr, otherAddr, dynamicDiscount, neighborMaxQP);
+            }
+        }
+        dests.clear();
+    }
+
+    // =========================================================================
+    // CONNECTION HANDLER
+    // =========================================================================
 
     @Override
     public void changedConnection(Connection con) {
         super.changedConnection(con);
-        DTNHost otherNode = con.getOtherNode(getHost());
+
+        DTNHost other = con.getOtherNode(getHost());
+        CCRouting otherRouter = (CCRouting) other.getRouter();
 
         if (con.isUp()) {
-            if (!this.pendingRewards.containsKey(otherNode.getAddress())) {
-                this.pendingRewards.put(otherNode.getAddress(), new ArrayList<>());
-            }
-            this.candidateReceiver.add(con);
+            candidateReceiver.add(con);
+            pendingRewards.putIfAbsent(other.getAddress(), new ArrayList<>());
 
-            // Update PRoPHET
-            double oldValue = getPredFor(otherNode);
-            preds.put(otherNode, oldValue + (1 - oldValue) * pInit);
+            // Eq.1 — update encounter probability
+            updateEncounterProb(other);
+
+            // Eq.3 — update transitivity
+            updateTransitivity(other, otherRouter);
+
+            // Algorithm 1 — Q-update langsung saat koneksi naik
+            updateQTableOnContact(other, otherRouter);
+
         } else {
-            this.candidateReceiver.remove(con);
+            candidateReceiver.remove(con);
         }
     }
+
+    // =========================================================================
+    // UPDATE LOOP
+    // =========================================================================
 
     @Override
     public void update() {
         super.update();
+
         if (isTransferring() || !canStartTransfer())
             return;
 
+        // Prioritas 1: kirim langsung ke destination
         if (exchangeDeliverableMessages() != null)
             return;
 
+        // Prioritas 2: relay via Algorithm 2
         tryOtherMessage();
 
-        double currentTime = SimClock.getTime();
-        if ((currentTime - lastUpdateTime) >= updateInterval) {
-            lastUpdateTime = currentTime;
-            ql.ageQTable();
-
-            // Hanya update untuk node yang SAAT INI terkoneksi
-            for (Connection con : candidateReceiver) {
-                DTNHost other = con.getOtherNode(getHost());
-                int otherAddr = other.getAddress();
-
-                List<Integer> dests = pendingRewards.get(otherAddr);
-                if (dests == null || dests.isEmpty())
-                    continue;
-
-                CCRouting othRouter = (CCRouting) other.getRouter();
-                int totalVisit = visitCount.getOrDefault(other, 0) + 1;
-                visitCount.put(other, totalVisit);
-
-                double pEncounter = getPredFor(other);
-                double bf = getBufferFactor(other);
-                int s = calculateCurrentState(); // Ambil state saat ini
-
-                for (int destAddr : dests) {
-                    double reward = (otherAddr == destAddr) ? 1.0 : 0.0;
-                    double neighborMaxQPrime = othRouter.getQl().getNeighborMaxQPrime(destAddr, pEncounter);
-
-                    this.ql.setLearningRate(totalVisit, learningCoeff);
-                    this.ql.setDiscountFactorDynamic(baseDiscountGamma, bf);
-
-                    // Update: s_sekarang (0-2), action (alamat node tetangga)
-                    this.ql.UpdateState(destAddr, s, otherAddr, reward, neighborMaxQPrime, this, other);
-                }
-                dests.clear(); // Bersihkan setelah reward diproses
-            }
+        // Periodik: aging Q-table (Eq.11)
+        double now = SimClock.getTime();
+        if ((now - lastUpdateTime) >= updateInterval) {
+            lastUpdateTime = now;
+            // [FIX-BUG-2] t dihitung dari waktu nyata
+            ageQTable(SEC_IN_TU);
         }
     }
 
+    // =========================================================================
+    // MESSAGE FORWARDING — Algorithm 2
+    // =========================================================================
+
+    /**
+     * Algorithm 2 — Memilih relay terbaik untuk setiap pesan.
+     *
+     * Kasus A — Q-table PUNYA entry untuk dest(m):
+     * → getBestAction(): argmax Qd(s,x) = relay terbaik menurut Q
+     * → Forward ke other JIKA other == bestAction (greedy)
+     * → Dengan prob EPSILON, forward ke other walau bukan bestAction (eksplorasi)
+     * [FIX-BUG-6,7] ε = 0.1 → 90% greedy, 10% eksplorasi
+     *
+     * Kasus B — Q-table BELUM punya entry untuk dest(m):
+     * → Forward ke other dengan prob EXPLORE_PROB = 50%
+     * [FIX-BUG-8] Sebelumnya 1/200 = 0.5% → terlalu kecil untuk eksplorasi
+     *
+     * Dari semua kandidat yang lolos, pilih fusion score tertinggi.
+     */
     private void tryOtherMessage() {
         Collection<Message> msgCollection = getMessageCollection();
         if (msgCollection.isEmpty() || candidateReceiver.isEmpty())
             return;
 
-        int s = calculateCurrentState();
-
         for (Connection con : candidateReceiver) {
             DTNHost other = con.getOtherNode(getHost());
-            CCRouting othRouter = (CCRouting) other.getRouter();
-            if (othRouter.isTransferring())
+            CCRouting otherRouter = (CCRouting) other.getRouter();
+            if (otherRouter.isTransferring())
                 continue;
 
             List<Tuple<Message, Connection>> potentials = new ArrayList<>();
+
             for (Message m : msgCollection) {
-                if (othRouter.hasMessage(m.getId()))
+                if (otherRouter.hasMessage(m.getId()))
                     continue;
-                if (othRouter.getFreeBufferSize() < m.getSize())
+                if (otherRouter.getFreeBufferSize() < m.getSize())
                     continue;
 
                 int destAddr = m.getTo().getAddress();
+                boolean shouldForward = false;
 
-                // Keputusan Q-Learning Policy (Menggunakan State Dinamis)
-                int action = this.ql.GetAction(destAddr, s, null, false);
+                if (hasQEntry(destAddr)) {
+                    // Kasus A: Q sudah ada → greedy dengan eksplorasi kecil
+                    int bestAction = getBestAction(destAddr);
 
-                if (action == other.getAddress()) {
+                    if (bestAction == other.getAddress()) {
+                        // other adalah relay terbaik menurut Q → forward
+                        shouldForward = true;
+                    } else if (Math.random() < EPSILON) {
+                        // Eksplorasi: coba other walau bukan yang terbaik
+                        shouldForward = true;
+                    }
+                } else {
+                    // Kasus B: Q belum ada → eksplorasi probabilistik
+                    if (Math.random() < EXPLORE_PROB) {
+                        shouldForward = true;
+                    }
+                }
+
+                if (shouldForward) {
                     potentials.add(new Tuple<>(m, con));
                 }
             }
 
             if (!potentials.isEmpty()) {
-                Collections.sort(potentials, (t1, t2) -> {
-                    double s1 = getFusionScore(t1.getKey(), t1.getValue().getOtherNode(getHost()));
-                    double s2 = getFusionScore(t2.getKey(), t2.getValue().getOtherNode(getHost()));
-                    return Double.compare(s2, s1);
+                // Sort berdasarkan fusion score tertinggi
+                potentials.sort((t1, t2) -> {
+                    double fs1 = getFusionScore(
+                            t1.getKey(), t1.getValue().getOtherNode(getHost()));
+                    double fs2 = getFusionScore(
+                            t2.getKey(), t2.getValue().getOtherNode(getHost()));
+                    return Double.compare(fs2, fs1);
                 });
 
                 Tuple<Message, Connection> best = potentials.get(0);
                 if (startTransfer(best.getKey(), best.getValue()) == MessageRouter.RCV_OK) {
-                    this.pendingRewards.get(other.getAddress()).add(best.getKey().getTo().getAddress());
-                    break;
+                    int otherAddr = other.getAddress();
+                    int destAddr = best.getKey().getTo().getAddress();
+                    pendingRewards.get(otherAddr).add(destAddr);
+                    break; // satu transfer per update cycle
                 }
             }
         }
     }
 
+    // =========================================================================
+    // REPLICATE
+    // =========================================================================
+
     @Override
     public CCRouting replicate() {
         return new CCRouting(this);
-    }
-
-    @Override
-    public Map<Integer, Tuple<DTNHost, List<Integer>>> getMapWaitForReward() {
-        return null;
-    }
-
-    public QLearning getQl() {
-        return this.ql;
     }
 }

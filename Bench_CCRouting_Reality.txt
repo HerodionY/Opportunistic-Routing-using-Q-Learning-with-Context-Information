@@ -13,10 +13,9 @@ btInterface.scanInterval = 120
 ## Group settings
 Scenario.nrofHostGroups = 1
 
-# StationaryMovement = node diam, pergerakan 100% dari trace file
 Group.movementModel = StationaryMovement
 Group.router = CCRouting
-Group.bufferSize = 100M
+Group.bufferSize = 20M
 Group.nrofInterfaces = 1
 Group.interface1 = btInterface
 Group.msgTtl = 20160
@@ -27,10 +26,10 @@ Group1.nodeLocation = 1, 1
 
 ## CCRouting Settings
 CCRouting.updateInterval = 900
-CCRouting.totalState = 250
+CCRouting.totalState  = 250
 CCRouting.totalAction = 250
-CCRouting.baseDiscountGamma = 0.8
-CCRouting.learningCoeff = 0.9
+CCRouting.baseDiscountGamma = 0.6   
+CCRouting.learningCoeff = 0.8       
 
 ## Events
 Events.nrof = 2
@@ -43,7 +42,6 @@ Events2.interval = 290, 310
 Events2.size = 500k
 Events2.hosts = 0, 249
 Events2.prefix = M
-# ✅ DIPERBAIKI: Durasi disesuaikan dengan endTime trace
 Events2.time = 0, 1698181
 
 ## Movement Model
@@ -53,7 +51,7 @@ MovementModel.worldSize = 100, 100
 ## Reports
 Report.nrofReports = 2
 Report.warmup = 1
-Report.reportDir = reports_skripsi/reality/ORQLCI/
+Report.reportDir = testing/ORQLCI_ShortestMap/1/
 Report.report1 = MessageStatsReport
 Report.report2 = InterestReport
 

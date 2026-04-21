@@ -1,0 +1,20 @@
+Message stats for scenario Reality_ORQLCI_Final
+sim_time: 1698181.0000
+created: 5671
+started: 27653
+relayed: 24679
+aborted: 2974
+dropped: 9040
+removed: 0
+delivered: 1572
+delivery_prob: 0.2772
+response_prob: 0.0000
+overhead_ratio: 14.6991
+latency_avg: 160174.5668
+latency_med: 69585.0000
+hopcount_avg: 1.0076
+hopcount_med: 1
+buffertime_avg: 434108.8857
+buffertime_med: 263200.0000
+rtt_avg: NaN
+rtt_med: NaN

@@ -1,73 +1,67 @@
 #
-# Configuration for ORQLCI (Revised State-Aware Version)
-# Total Nodes: 200 | Simulation Time: 12h | Message TTL: 5m
+# Configuration for ORQLCI - ShortestPathMapBased (Test Version)
+# Total Nodes: 200 | Simulation Time: 12h | Buffer: 50MB
 #
 
 ## Scenario settings
-Scenario.name = ORQLCI_StateAware_Replication
+Scenario.name = ORQLCI_ShortestMap_Test
 Scenario.simulateConnections = true
 Scenario.updateInterval = 0.1
-# Simulation time: 43200s (12 jam)
 Scenario.endTime = 43200
 
-## Interface-specific settings
+## Interface settings
 btInterface.type = SimpleBroadcastInterface
-# Node transfer rate: 250kB/s
 btInterface.transmitSpeed = 250k
-# Node communication radius: 10m
 btInterface.transmitRange = 10
 
-# Total Nodes: 200
+## Group settings
 Scenario.nrofHostGroups = 6
 
-## Common settings for all groups
 Group.movementModel = ShortestPathMapBasedMovement
 Group.router = CCRouting
-# Node cache size: 50MB
 Group.bufferSize = 50M
 Group.waitTime = 0, 120
 Group.nrofInterfaces = 1
 Group.interface1 = btInterface
 Group.speed = 0.5, 1.5
-# CRITICAL: Message lifetime 300 minutes (5 hours) sesuai gambar parameter paper
 Group.msgTtl = 300
 
 # --- NODE DISTRIBUTIONS (Total 200) ---
 Group1.groupID = p
 Group1.nrofHosts = 64
+
 Group2.groupID = c
 Group2.speed = 2.7, 13.9
 Group2.nrofHosts = 64
+
 Group3.groupID = w
 Group3.nrofHosts = 66
+
 Group4.groupID = t
 Group4.nrofHosts = 2
+
 Group5.groupID = t
 Group5.nrofHosts = 2
+
 Group6.groupID = t
 Group6.nrofHosts = 2
 
-## CCRouting (ORQLCI) settings
-# UpdateInterval diperpendek agar AI lebih responsif terhadap mobilitas
+## CCRouting (ORQLCI) Settings
+# updateInterval hanya untuk ageQTable(), Q-update sudah realtime
 CCRouting.updateInterval = 30
-
-# SEKARANG TOTAL STATE ADALAH 3 (s0: Lega, s1: Sedang, s2: Kritis)
-CCRouting.totalState = 3
-# TOTAL ACTION ADALAH 200 (Sesuai jumlah host)
+# totalState = jumlah node = dimensi dest Q-table
+CCRouting.totalState  = 200
+# totalAction = jumlah node = dimensi action Q-table  
 CCRouting.totalAction = 200
-
-# Parameter Tuning RL
+# Parameter sesuai paper Section 4.1
 CCRouting.baseDiscountGamma = 0.6
 CCRouting.learningCoeff = 0.8
 
 ## Message creation parameters
 Events.nrof = 1
 Events1.class = MessageEventGenerator
-# Message generation interval: 15s - 25s
 Events1.interval = 15, 25
-# Message size: 500kB - 1MB
 Events1.size = 500k, 1M
-# Range host: 0 sampai 199
 Events1.hosts = 0, 199
 Events1.prefix = M
 
@@ -83,20 +77,17 @@ MapBasedMovement.mapFile3 = data/pedestrian_paths.wkt
 MapBasedMovement.mapFile4 = data/shops.wkt
 
 ## Reports
-Report.nrofReports = 4
-Report.warmup = 0
-# Directory khusus untuk hasil revisi
-Report.reportDir = reports_skripsi/ShortestPathMapBasedMovement/ORQLCI/
+Report.nrofReports = 2
+Report.warmup = 1000
+Report.reportDir = testing/ORQLCI_ShortestMap/1/
 Report.report1 = MessageStatsReport
 Report.report2 = ContactTimesReport
-Report.report3 = PerformanceReport
-Report.report4 = MessageStatsTimeReport
 
-## Optimization settings
+## Optimization
 Optimization.cellSizeMult = 5
 Optimization.randomizeUpdateOrder = true
 
-## GUI settings
+## GUI
 GUI.UnderlayImage.fileName = data/helsinki_underlay.png
 GUI.UnderlayImage.offset = 64, 20
 GUI.UnderlayImage.scale = 4.75

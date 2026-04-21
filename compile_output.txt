@@ -1,0 +1,56 @@
+
+D:\Opportunistic-Routing-using-Q-Learning-with-Context-Information>set targetdir=target 
+
+D:\Opportunistic-Routing-using-Q-Learning-with-Context-Information>IF NOT EXIST "target" mkdir target 
+
+D:\Opportunistic-Routing-using-Q-Learning-with-Context-Information>javac -encoding UTF-8 -sourcepath src -d target -cp lib/ECLA.jar;lib/DTNConsoleConnection.jar;lib/jFuzzyLogic.jar;lib/uncommons-maths-1.2.1.jar;lib/lombok.jar;lib/fastjson-1.2.7.jar src/core/*.java src/reinforcement/*.java src/movement/*.java src/report/*.java src/routing/*.java src/gui/*.java src/input/*.java src/applications/*.java src/interfaces/*.java src/ORQLCI/*.java 
+src\movement\BusControlSystem.java:86: warning: [removal] Integer(int) in Integer has been deprecated and marked for removal
+		Integer id = new Integer(systemID);
+		             ^
+src\movement\EveningActivityControlSystem.java:55: warning: [removal] Integer(int) in Integer has been deprecated and marked for removal
+		eveningActivityNodes.put(new Integer(eveningMovement.getID()), 
+		                         ^
+src\movement\EveningActivityControlSystem.java:76: warning: [removal] Integer(int) in Integer has been deprecated and marked for removal
+				new Integer(eveningActivityNodeID));
+				^
+src\movement\EveningActivityControlSystem.java:130: warning: [removal] Integer(int) in Integer has been deprecated and marked for removal
+		if (controlSystems.containsKey(new Integer(id))) {
+		                               ^
+src\movement\EveningActivityControlSystem.java:131: warning: [removal] Integer(int) in Integer has been deprecated and marked for removal
+			return controlSystems.get(new Integer(id));
+			                          ^
+src\movement\EveningActivityControlSystem.java:135: warning: [removal] Integer(int) in Integer has been deprecated and marked for removal
+			controlSystems.put(new Integer(id), scs);
+			                   ^
+src\report\ContactsDuringAnICTReport.java:57: warning: [removal] Integer(int) in Integer has been deprecated and marked for removal
+			contactsDuringIC.add(new Integer(contactCount[id1][id2]));
+			                     ^
+src\report\ContactsDuringAnICTReport.java:58: warning: [removal] Integer(int) in Integer has been deprecated and marked for removal
+			contactsDuringIC.add(new Integer(contactCount[id2][id1]));
+			                     ^
+src\report\ContactsPerHourReport.java:38: warning: [removal] Integer(int) in Integer has been deprecated and marked for removal
+			contactCounts.add(new Integer(currentHourCount));
+			                  ^
+src\routing\ORQLCIPerformanceRouter.java:282: error: method does not override or implement a method from a supertype
+    @Override
+    ^
+src\routing\SprayAndWaitRouter.java:83: warning: [removal] Integer(int) in Integer has been deprecated and marked for removal
+		msg.addProperty(MSG_COUNT_PROPERTY, new Integer(initialNrofCopies));
+		                                    ^
+src\gui\GUIControls.java:290: warning: [removal] Double(double) in Double has been deprecated and marked for removal
+		Number newValue = new Double(curZoom + model.getStepSize().
+		                  ^
+src\input\BinaryEventsReader.java:118: warning: [removal] Integer(int) in Integer has been deprecated and marked for removal
+		out.writeObject(new Integer(events.size()));
+		                ^
+Note: src\core\Settings.java uses or overrides a deprecated API.
+Note: Recompile with -Xlint:deprecation for details.
+Note: Some input files use unchecked or unsafe operations.
+Note: Recompile with -Xlint:unchecked for details.
+1 error
+12 warnings
+
+D:\Opportunistic-Routing-using-Q-Learning-with-Context-Information>IF NOT EXIST "target\gui\buttonGraphics" (
+mkdir target\gui\buttonGraphics  
+ copy src\gui\buttonGraphics\* target\gui\buttonGraphics\ 
+) 

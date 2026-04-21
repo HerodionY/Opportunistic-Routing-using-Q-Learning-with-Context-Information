@@ -31,7 +31,6 @@ public class StandardQLearningRouter extends QLearningRouter {
         return new StandardQLearningRouter(this);
     }
 
-    @Override
     public Map<Integer, Tuple<DTNHost, List<Integer>>> getMapWaitForReward() {
         return this.waitForReward;
     }

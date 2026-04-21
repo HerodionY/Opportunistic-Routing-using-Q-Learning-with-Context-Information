@@ -279,7 +279,6 @@ public class ORQLCIPerformanceRouter extends QLearningRouter {
         }
     }
 
-    @Override
     public Map<Integer, Tuple<DTNHost, List<Integer>>> getMapWaitForReward() {
         return this.waitForReward;
     }

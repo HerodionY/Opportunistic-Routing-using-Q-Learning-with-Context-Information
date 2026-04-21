@@ -51,7 +51,7 @@ MovementModel.worldSize = 100, 100
 ## Reports
 Report.nrofReports = 2
 Report.warmup = 1
-Report.reportDir = testing/ORQLCI_ShortestMap/1/
+Report.reportDir = testing/Reality/1/
 Report.report1 = MessageStatsReport
 Report.report2 = InterestReport
 

@@ -1,0 +1,25 @@
+Message stats for scenario Reality_ORQLCI_Final
+sim_time: 1698181.0000
+Total node : 250
+============
+Total Node per Interest : 
+0 : 128
+1 : 117
+2 : 115
+3 : 112
+4 : 119
+============
+Total Message Delivered per Interest : 
+0 : 93
+1 : 78
+2 : 64
+3 : 85
+4 : 76
+============
+Success Rate per Interest : 
+0 : 0.007265625
+1 : 0.00609375
+2 : 0.005
+3 : 0.006640625
+4 : 0.0059375
+

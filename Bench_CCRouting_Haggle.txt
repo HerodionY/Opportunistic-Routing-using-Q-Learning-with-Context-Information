@@ -28,7 +28,7 @@ Group.bufferSize = 10M
 Group.nrofInterfaces = 1
 Group.interface1 = btInterface
 # TTL 360 menit (6 jam)
-Group.msgTtl = 360
+Group.msgTtl = 2880
 
 # --- NODE DISTRIBUTIONS ---
 Group1.groupID = P
@@ -38,9 +38,9 @@ Group1.nodeLocation = 10, 10
 ## CCRouting (ORQLCI) settings
 # Karena Haggle lebih padat, kita set update AI tiap 5 menit (300 detik)
 CCRouting.updateInterval = 300
-# State: 3 (Lega, Sedang, Kritis)
-CCRouting.totalState = 3
-# PENTING: Action harus sama dengan jumlah host (41)
+# State: Harus sama dengan total host (41) karena ini mendefinisikan batas max alamat tujuan (Destination Axis) di Q-Table.
+CCRouting.totalState = 41
+# Action: Harus sama dengan total host (41) karena mendefinisikan max alamat Relay (Action Axis).
 CCRouting.totalAction = 41
 
 # Parameter Tuning RL

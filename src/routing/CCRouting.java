@@ -36,6 +36,11 @@ import reinforcement.*;
  * [BUG-6] ε = 0.989 terlalu tinggi → hampir selalu random, bukan greedy
  * [BUG-7] Forwarding saat Q ada: ChooseAction check → logika greedy + epsilon
  * [BUG-8] Forwarding saat Q kosong: 1/200 prob → 50% prob eksplorasi
+ * [BUG-9] Q-Learning lambat: hapus pendingRewards, update Q untuk SEMUA dest saat encounter
+ * [BUG-10] Multi-hop macet: hapus getBestAction() absolut, ganti dengan lokal Q-value check
+ * [BUG-11] Epidemic Flood: batasi copy pesan dengan asc gradient check
+ * [BUG-12] PRoPHET Delta salah arah di Fusion Score, diperbaiki
+ * [BUG-13] Forwarding Logic kini Hibrida (Q-Value & PRoPHET Gradient)
  * ═══════════════════════════════════════════════════════════════
  */
 public class CCRouting extends QLearningRouter {
@@ -110,13 +115,6 @@ public class CCRouting extends QLearningRouter {
     private List<Connection> candidateReceiver;
 
     /**
-     * pendingRewards: otherNodeAddr → List<destAddr>
-     * Destination dari pesan yang sudah berhasil dikirim ke otherNode,
-     * menunggu Q-update saat next encounter dengan node tersebut.
-     */
-    private Map<Integer, List<Integer>> pendingRewards;
-
-    /**
      * visitCount: DTNHost → jumlah total encounter
      * Adaptive learning rate: α = learningCoeff / visitCount
      * Makin sering ketemu, α makin kecil → Q makin stabil
@@ -165,7 +163,6 @@ public class CCRouting extends QLearningRouter {
     private void initLocal() {
         this.epsilonGreedy = new EpsilonGreedyExploration(EPSILON);
         this.candidateReceiver = new ArrayList<>();
-        this.pendingRewards = new LinkedHashMap<>();
         this.visitCount = new LinkedHashMap<>();
     }
 
@@ -279,7 +276,11 @@ public class CCRouting extends QLearningRouter {
     private double getFusionScore(Message m, DTNHost other) {
         int destAddr = m.getTo().getAddress();
         double rlScore = getQV(destAddr, other.getAddress());
-        double prophetDelta = getPredFor(other) - getPredFor(m.getTo());
+        
+        CCRouting otherRouter = (CCRouting) other.getRouter();
+        // [FIX-BUG-12] prophetDelta harusnya P_other(dest) - P_this(dest)
+        double prophetDelta = otherRouter.getPredFor(m.getTo()) - this.getPredFor(m.getTo());
+        
         double bf = getBufferFactor(other);
 
         return (W_RL * rlScore)
@@ -306,10 +307,6 @@ public class CCRouting extends QLearningRouter {
     private void updateQTableOnContact(DTNHost other, CCRouting otherRouter) {
         int otherAddr = other.getAddress();
 
-        List<Integer> dests = pendingRewards.get(otherAddr);
-        if (dests == null || dests.isEmpty())
-            return;
-
         // Adaptive learning rate
         int visits = visitCount.getOrDefault(other, 0) + 1;
         visitCount.put(other, visits);
@@ -323,18 +320,20 @@ public class CCRouting extends QLearningRouter {
         // Eq.8 — encounter prob map dari other
         Map<Integer, Double> otherProbMap = otherRouter.getEncounterProbMap();
 
-        for (int destAddr : dests) {
+        // [FIX-BUG-9] Update Q-Table untuk SEMUA destinasi dengan off-policy Bellman equation
+        for (int destAddr = 0; destAddr < totalDest; destAddr++) {
+            if (destAddr == getHost().getAddress()) {
+                continue; // Jangan update utilitas ke diri sendiri
+            }
             if (otherAddr == destAddr) {
                 // Eq.10 — direct delivery
                 updateQDirect(destAddr, otherAddr);
             } else {
                 // Eq.9 — relay
-                // [FIX-BUG-1] dynamicDiscount = γ×BFx, tidak dikali BFx lagi
                 double neighborMaxQP = otherRouter.getNeighborMaxQPrime(destAddr, otherProbMap);
                 updateQRelay(destAddr, otherAddr, dynamicDiscount, neighborMaxQP);
             }
         }
-        dests.clear();
     }
 
     // =========================================================================
@@ -350,7 +349,6 @@ public class CCRouting extends QLearningRouter {
 
         if (con.isUp()) {
             candidateReceiver.add(con);
-            pendingRewards.putIfAbsent(other.getAddress(), new ArrayList<>());
 
             // Eq.1 — update encounter probability
             updateEncounterProb(other);
@@ -434,22 +432,23 @@ public class CCRouting extends QLearningRouter {
                 int destAddr = m.getTo().getAddress();
                 boolean shouldForward = false;
 
-                if (hasQEntry(destAddr)) {
-                    // Kasus A: Q sudah ada → greedy dengan eksplorasi kecil
-                    int bestAction = getBestAction(destAddr);
+                // [FIX-FINAL] Forwarding logic hibrida mutlak (ORQLCI): Q-Routing & PRoPHET Predictability
+                // Hitung max Q rute
+                double myMaxQ = getQV(destAddr, getBestAction(destAddr));
+                double otherMaxQ = otherRouter.getQV(destAddr, otherRouter.getBestAction(destAddr));
 
-                    if (bestAction == other.getAddress()) {
-                        // other adalah relay terbaik menurut Q → forward
-                        shouldForward = true;
-                    } else if (Math.random() < EPSILON) {
-                        // Eksplorasi: coba other walau bukan yang terbaik
-                        shouldForward = true;
-                    }
-                } else {
-                    // Kasus B: Q belum ada → eksplorasi probabilistik
-                    if (Math.random() < EXPLORE_PROB) {
-                        shouldForward = true;
-                    }
+                // Hitung Predictability (PRoPHET)
+                double myPred = this.getPredFor(m.getTo());
+                double otherPred = otherRouter.getPredFor(m.getTo());
+
+                boolean isQBetter = otherMaxQ > myMaxQ;
+                boolean isProphetBetter = otherPred > myPred;
+
+                // Epidemic Random Exploration (50% atau 10%) TELAH DIHAPUS 
+                // karena menyebabkan Buffer Gridlock 100% penuh selama 14 hari di trace Reality (TTL=14 hari)
+                if (isQBetter || isProphetBetter || m.getTo() == other) {
+                    // Maju jika dan hanya jika salah satu metrik rute menjanjikan (Gradient Ascending murni!)
+                    shouldForward = true;
                 }
 
                 if (shouldForward) {
@@ -469,9 +468,6 @@ public class CCRouting extends QLearningRouter {
 
                 Tuple<Message, Connection> best = potentials.get(0);
                 if (startTransfer(best.getKey(), best.getValue()) == MessageRouter.RCV_OK) {
-                    int otherAddr = other.getAddress();
-                    int destAddr = best.getKey().getTo().getAddress();
-                    pendingRewards.get(otherAddr).add(destAddr);
                     break; // satu transfer per update cycle
                 }
             }

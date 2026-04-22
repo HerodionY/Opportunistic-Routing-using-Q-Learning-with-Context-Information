@@ -3,54 +3,6 @@ package routing;
 import core.*;
 import java.util.*;
 
-/**
- * CCRouting — Implementasi ORQLCI sesuai paper (Conservative Version):
- * "Opportunistic Routing using Q-Learning with Context Information"
- * Liu et al.
- *
- * ═══════════════════════════════════════════════════════════════
- * PRINSIP KONSERVATIF:
- * - Implementasi mengikuti paper secara literal, tanpa interpretasi berlebihan
- * - Q-update HANYA untuk destination pesan yang ada di buffer (on-policy)
- * - updateQTableOnContact() HANYA dipanggil saat changedConnection
- * - Alg.2 "Update Q-Table" diinterpretasi sebagai "gunakan Q yang sudah ada"
- * - PRoPHET fallback permisif (>=) untuk sparse network
- * ═══════════════════════════════════════════════════════════════
- *
- * FLOW SESUAI PAPER:
- *
- * [changedConnection — con.isUp()]
- * 1. Eq.1 — updateEncounterProb(other)
- * 2. Eq.3 — updateTransitivity(other)
- * 3. Alg.1 — updateQTableOnContact(other):
- * - Eq.11 aging Q dulu
- * - Eq.9/10 update Q untuk dest pesan yang DI BUFFER
- *
- * [update() — setiap tick]
- * 4. exchangeDeliverableMessages() — direct delivery prioritas
- * 5. Alg.2 — tryOtherMessage():
- * - Greedy: a* = argmax Qd(s,x) jika Q ada
- * - PRoPHET: ascending gradient jika Q belum ada
- * 6. Periodik: Eq.11 aging Q-table
- *
- * ═══════════════════════════════════════════════════════════════
- * VERIFIKASI PERSAMAAN PAPER:
- *
- * Eq.1 ✓ P(a,b) = P_old + (1-P_old)×Pinit
- * Eq.2 ✓ P(a,b) = P_old × η^t
- * Eq.3 ✓ P(a,c) = P_old + (1-P_old)×P(a,b)×P(b,c)×β
- * Eq.4 ✓ BF = 1 - Σ(Bm)/Cinit
- * Eq.6 ✓ Reward: 1 jika direct, 0 jika relay
- * Eq.7 ✓ γd(s,x) = γ × BFx
- * Eq.8 ✓ max_y[Qd(x,y)×P(x,y)]
- * Eq.9 ✓ Q relay update: (1-α)Q + α×γd×maxQ'
- * Eq.10 ✓ Q direct update: (1-α)Q + α×1
- * Eq.11 ✓ Q aging: Q = Q_old × ω^t
- *
- * Alg.1 ✓ Aging dulu, lalu update Q untuk dest pesan di buffer
- * Alg.2 ✓ Greedy dari Q / PRoPHET fallback
- * ═══════════════════════════════════════════════════════════════
- */
 public class CCRouting extends QLearningRouter {
 
     // =========================================================================
@@ -67,8 +19,8 @@ public class CCRouting extends QLearningRouter {
     // PROPHET PARAMETERS (Section 3.1)
     // =========================================================================
     private static final double P_INIT = 0.75; // Pinit, Eq.1
-    private static final double GAMMA_P = 0.98; // η decay, Eq.2
-    private static final double BETA = 0.25; // β transitivity, Eq.3
+    private static final double GAMMA_P = 0.98;
+    private static final double BETA = 0.25;
     private static final int SEC_IN_TU = 30; // time unit = 30s
 
     private Map<DTNHost, Double> preds;
@@ -77,23 +29,15 @@ public class CCRouting extends QLearningRouter {
     // =========================================================================
     // LEARNING PARAMETERS
     // =========================================================================
-    private double baseDiscountGamma; // γ base untuk Eq.7
-    private double learningCoeff; // α dari config (paper: 0.8)
+    private double baseDiscountGamma;
+    private double learningCoeff;
 
     /**
-     * Batas bawah α adaptif.
-     * Untuk reproduksi eksak paper: set ALPHA_MIN = learningCoeff
-     * (misal 0.8) agar α selalu konstan seperti di paper.
-     * Untuk adaptive: gunakan 0.01 agar α bisa turun tiap encounter.
+     * Algorithm 2 directional forwarding threshold (Table 1: 45 degrees).
+     * Forward to relay rn when cos(Vdes, Vm) >= cos(delta).
      */
-    private static final double ALPHA_MIN = 0.01;
-
-    // =========================================================================
-    // FUSION SCORE WEIGHTS (untuk sorting, bukan Q-update)
-    // =========================================================================
-    private static final double W_RL = 0.8;
-    private static final double W_PROPHET = 0.1;
-    private static final double W_BUFFER = 0.1;
+    private static final double DIRECTION_THRESHOLD_DEGREES = 45.0;
+    private static final double DIRECTION_THRESHOLD_COS = Math.cos(Math.toRadians(DIRECTION_THRESHOLD_DEGREES));
 
     // =========================================================================
     // TIMING
@@ -105,7 +49,6 @@ public class CCRouting extends QLearningRouter {
     // DATA STRUCTURES
     // =========================================================================
     private List<Connection> candidateReceiver;
-    private Map<DTNHost, Integer> visitCount; // untuk adaptive α
 
     // =========================================================================
     // CONSTRUCTOR
@@ -124,6 +67,7 @@ public class CCRouting extends QLearningRouter {
         this.learningRate = learningCoeff;
         this.discountFactor = baseDiscountGamma;
         this.agingOmega = GAMMA_P;
+        this.qAgeTimeUnit = SEC_IN_TU;
 
         initQTable();
         initPreds();
@@ -148,17 +92,12 @@ public class CCRouting extends QLearningRouter {
 
     private void initLocal() {
         this.candidateReceiver = new ArrayList<>();
-        this.visitCount = new LinkedHashMap<>();
     }
 
     // =========================================================================
     // ENCOUNTER PROBABILITY (Section 3.1)
     // =========================================================================
 
-    /**
-     * Eq.2 — Decay P(this,x) seiring waktu.
-     * P(a,b) = P_old × η^t
-     */
     private void ageDeliveryPreds() {
         double now = SimClock.getTime();
         double timeDiff = (now - lastAgeUpdate) / SEC_IN_TU;
@@ -172,20 +111,12 @@ public class CCRouting extends QLearningRouter {
         lastAgeUpdate = now;
     }
 
-    /**
-     * Eq.1 — Update P(this, other) saat bertemu.
-     * P(a,b) = P_old + (1 - P_old) × Pinit
-     */
     private void updateEncounterProb(DTNHost other) {
         ageDeliveryPreds();
         double oldVal = preds.getOrDefault(other, 0.0);
         preds.put(other, oldVal + (1.0 - oldVal) * P_INIT);
     }
 
-    /**
-     * Eq.3 — Transitivity via node b.
-     * P(a,c) = P_old + (1 - P_old) × P(a,b) × P(b,c) × β
-     */
     private void updateTransitivity(DTNHost nodeB, CCRouting routerB) {
         ageDeliveryPreds();
         routerB.ageDeliveryPreds();
@@ -219,14 +150,24 @@ public class CCRouting extends QLearningRouter {
         return probMap;
     }
 
+    public Map<Integer, Double> getCurrentNeighborProbMap() {
+        ageDeliveryPreds();
+        Map<Integer, Double> probMap = new HashMap<>();
+        for (Connection con : getHost().getConnections()) {
+            if (!con.isUp()) {
+                continue;
+            }
+
+            DTNHost neighbor = con.getOtherNode(getHost());
+            probMap.put(neighbor.getAddress(), preds.getOrDefault(neighbor, 0.0));
+        }
+        return probMap;
+    }
+
     // =========================================================================
     // BUFFER FACTOR (Eq.4)
     // =========================================================================
 
-    /**
-     * Eq.4 — BF = 1 - Σ(Bm) / Cinit
-     * BF tinggi → buffer lega → node layak relay
-     */
     private double getBufferFactor(DTNHost host) {
         MessageRouter router = host.getRouter();
         int cTotal = router.getBufferSize();
@@ -241,57 +182,43 @@ public class CCRouting extends QLearningRouter {
     }
 
     // =========================================================================
-    // FUSION SCORE (untuk sorting, bukan Q-update)
+    // DIRECTIONAL FORWARDING (Algorithm 2 fallback)
     // =========================================================================
 
-    /**
-     * Fusion = 0.8×Q + 0.1×ΔP + 0.1×BF
-     * ΔP = P_other(dest) - P_this(dest)
-     *
-     * Dipakai HANYA untuk sorting kandidat pesan.
-     */
-    private double getFusionScore(Message m, DTNHost other) {
-        int destAddr = m.getTo().getAddress();
-        double rlScore = getQV(destAddr, other.getAddress());
+    private double getDirectionalCosine(DTNHost relay, DTNHost destination) {
+        Coord relayLocation = relay.getLocation();
+        Coord relayWaypoint = relay.getDestination();
+        Coord destinationLocation = destination.getLocation();
 
-        CCRouting otherRouter = (CCRouting) other.getRouter();
-        double prophetDelta = otherRouter.getPredFor(m.getTo())
-                - this.getPredFor(m.getTo());
-        double bf = getBufferFactor(other);
+        if (relayLocation == null || relayWaypoint == null || destinationLocation == null) {
+            return -1.0;
+        }
 
-        return (W_RL * rlScore)
-                + (W_PROPHET * Math.max(0.0, prophetDelta))
-                + (W_BUFFER * bf);
+        double moveX = relayWaypoint.getX() - relayLocation.getX();
+        double moveY = relayWaypoint.getY() - relayLocation.getY();
+        double targetX = destinationLocation.getX() - relayLocation.getX();
+        double targetY = destinationLocation.getY() - relayLocation.getY();
+
+        double moveNorm = Math.hypot(moveX, moveY);
+        if (moveNorm == 0.0) {
+            return -1.0;
+        }
+
+        double targetNorm = Math.hypot(targetX, targetY);
+        if (targetNorm == 0.0) {
+            return 1.0;
+        }
+
+        return ((moveX * targetX) + (moveY * targetY)) / (moveNorm * targetNorm);
     }
 
-    // =========================================================================
-    // ALGORITHM 1 — Q-UPDATE SAAT ENCOUNTER
-    // =========================================================================
-
-    /**
-     * Algorithm 1 — Update Q saat bertemu node other.
-     *
-     * KONSERVATIF: Q-update HANYA untuk destination dari pesan yang
-     * ada di buffer node ini (on-policy), sesuai interpretasi literal paper.
-     *
-     * Urutan sesuai Alg.1:
-     * 1. Eq.11 — aging Q dulu
-     * 2. Get context info (BF, encounter prob)
-     * 3. Eq.9/10 — update Q untuk tiap dest pesan di buffer
-     *
-     * Adaptive α: α = max(ALPHA_MIN, learningCoeff / visitCount)
-     */
     private void updateQTableOnContact(DTNHost other, CCRouting otherRouter) {
-        // ── Alg.1 baris 4: Eq.11 aging dulu ──────────────────────────────
         ageQTable(SEC_IN_TU);
-        // ─────────────────────────────────────────────────────────────────
 
         int otherAddr = other.getAddress();
 
-        // Adaptive learning rate
-        int visits = visitCount.getOrDefault(other, 0) + 1;
-        visitCount.put(other, visits);
-        this.learningRate = Math.max(ALPHA_MIN, learningCoeff / visits);
+        // Paper Section 4.1 menggunakan alpha konstan.
+        this.learningRate = learningCoeff;
 
         // Context info
         double bfOther = getBufferFactor(other);
@@ -299,7 +226,6 @@ public class CCRouting extends QLearningRouter {
 
         Map<Integer, Double> otherProbMap = otherRouter.getEncounterProbMap();
 
-        // ── KONSERVATIF: update Q HANYA untuk dest pesan di buffer ──────
         Set<Integer> relevantDests = new HashSet<>();
         for (Message m : getMessageCollection()) {
             relevantDests.add(m.getTo().getAddress());
@@ -310,15 +236,12 @@ public class CCRouting extends QLearningRouter {
                 continue;
 
             if (otherAddr == destAddr) {
-                // Eq.10 — direct delivery
                 updateQDirect(destAddr, otherAddr);
             } else {
-                // Eq.9 — relay
                 double neighborMaxQP = otherRouter.getNeighborMaxQPrime(destAddr, otherProbMap);
                 updateQRelay(destAddr, otherAddr, dynamicDiscount, neighborMaxQP);
             }
         }
-        // ─────────────────────────────────────────────────────────────────
     }
 
     // =========================================================================
@@ -333,15 +256,18 @@ public class CCRouting extends QLearningRouter {
         CCRouting otherRouter = (CCRouting) other.getRouter();
 
         if (con.isUp()) {
-            candidateReceiver.add(con);
+            if (!candidateReceiver.contains(con)) {
+                candidateReceiver.add(con);
+            }
 
-            // Eq.1 — encounter probability
+            // encounter probability
             updateEncounterProb(other);
 
-            // Eq.3 — transitivity
+            // transitivity
             updateTransitivity(other, otherRouter);
 
-            // Algorithm 1 — Q-update HANYA di sini (tidak di tryOtherMessage)
+            // Algorithm 1
+            // Q-update HANYA di sini (tidak di tryOtherMessage)
             updateQTableOnContact(other, otherRouter);
 
         } else {
@@ -375,102 +301,71 @@ public class CCRouting extends QLearningRouter {
         }
     }
 
-    // =========================================================================
-    // ALGORITHM 2 — MESSAGE FORWARDING
-    // =========================================================================
-
-    /**
-     * Algorithm 2 — Pilih relay terbaik.
-     *
-     * KONSERVATIF: Alg.2 baris 4-5 "Update Q-Table" diinterpretasi
-     * sebagai "gunakan Q yang sudah diupdate di changedConnection",
-     * bukan "update Q lagi".
-     *
-     * KASUS A — Q-table PUNYA entry untuk dest:
-     * → Greedy: a* = argmax Qd(s,x)
-     * → Forward ke other HANYA jika other == a*
-     *
-     * KASUS B — Q-table BELUM ada entry untuk dest:
-     * → PRoPHET ascending gradient (permisif):
-     * Forward jika P_other(dest) >= P_this(dest)
-     * → >= (bukan >) agar tidak terlalu ketat di sparse network
-     *
-     * Sorting akhir: fusion score tertinggi
-     */
     private void tryOtherMessage() {
         Collection<Message> msgCollection = getMessageCollection();
-        if (msgCollection.isEmpty() || candidateReceiver.isEmpty())
+        if (msgCollection.isEmpty() || candidateReceiver.isEmpty()) {
             return;
+        }
 
-        List<Tuple<Message, Connection>> potentials = new ArrayList<>();
+        ageQTable(SEC_IN_TU);
+
+        Tuple<Message, Connection> bestCandidate = null;
+        double bestScore = Double.NEGATIVE_INFINITY;
 
         for (Connection con : candidateReceiver) {
-            if (!con.isUp())
-                continue; // race condition guard
+            if (!con.isUp()) {
+                continue;
+            }
 
             DTNHost other = con.getOtherNode(getHost());
             CCRouting otherRouter = (CCRouting) other.getRouter();
-            if (otherRouter.isTransferring())
+            if (otherRouter.isTransferring()) {
                 continue;
-
-            // ── KONSERVATIF: TIDAK ada updateQTableOnContact() di sini ──
-            // Gunakan Q yang sudah diupdate di changedConnection
-            // ─────────────────────────────────────────────────────────────
+            }
 
             for (Message m : msgCollection) {
-                if (otherRouter.hasMessage(m.getId()))
+                if (otherRouter.hasMessage(m.getId())) {
                     continue;
-                if (otherRouter.getFreeBufferSize() < m.getSize())
+                }
+                if (otherRouter.getFreeBufferSize() < m.getSize()) {
                     continue;
+                }
 
                 int destAddr = m.getTo().getAddress();
                 boolean shouldForward = false;
+                double candidateScore = Double.NEGATIVE_INFINITY;
 
                 if (hasQEntry(destAddr)) {
-                    // ── KASUS A: Greedy dari Q-table ─────────────────────
                     int bestAction = getBestAction(destAddr);
                     if (other.getAddress() == bestAction) {
                         shouldForward = true;
+                        candidateScore = getQV(destAddr, bestAction);
                     }
-                    // ──────────────────────────────────────────────────────
-
                 } else {
-                    // ── KASUS B: PRoPHET ascending gradient ───────────────
-                    // PERMISIF: >= bukan > untuk sparse network
-                    double myPred = this.getPredFor(m.getTo());
-                    double otherPred = otherRouter.getPredFor(m.getTo());
-                    if (otherPred >= myPred) {
+                    double directionalCosine = getDirectionalCosine(other, m.getTo());
+                    if (directionalCosine >= DIRECTION_THRESHOLD_COS) {
                         shouldForward = true;
+                        candidateScore = directionalCosine;
                     }
-                    // ──────────────────────────────────────────────────────
                 }
 
-                // Safety: direct delivery
                 if (m.getTo() == other) {
                     shouldForward = true;
+                    candidateScore = Double.POSITIVE_INFINITY;
                 }
 
-                if (shouldForward) {
-                    potentials.add(new Tuple<>(m, con));
+                if (shouldForward && candidateScore > bestScore) {
+                    bestScore = candidateScore;
+                    bestCandidate = new Tuple<>(m, con);
                 }
             }
         }
 
-        if (potentials.isEmpty())
+        if (bestCandidate == null) {
             return;
+        }
 
-        // Sort fusion score descending
-        potentials.sort((t1, t2) -> {
-            double fs1 = getFusionScore(
-                    t1.getKey(), t1.getValue().getOtherNode(getHost()));
-            double fs2 = getFusionScore(
-                    t2.getKey(), t2.getValue().getOtherNode(getHost()));
-            return Double.compare(fs2, fs1);
-        });
-
-        // Kirim satu pesan terbaik per update cycle
-        Tuple<Message, Connection> best = potentials.get(0);
-        startTransfer(best.getKey(), best.getValue());
+        startTransfer(bestCandidate.getKey(), bestCandidate.getValue());
     }
 
     // =========================================================================

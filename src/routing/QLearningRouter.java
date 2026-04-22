@@ -15,7 +15,7 @@ import routing.community.Duration;
 import core.Tuple;
 
 /**
- * QLearningRouter — Abstract base class untuk ORQLCI routing.
+ * QLearningRouter â€” Abstract base class untuk ORQLCI routing.
  *
  * Bertanggung jawab atas:
  * - Struktur Q-Table: qvalues[dest][relay] sesuai notasi Qd(s,x) di paper
@@ -27,12 +27,11 @@ import core.Tuple;
  * Referensi: Liu et al., "Opportunistic Routing using Q-Learning
  * with Context Information", Section 3.2
  *
- * ═══════════════════════════════════════════════════════════════
- * PERUBAHAN v2 (sesuaikan dengan paper):
- * [FIX-BASE-1] ageQTable dipanggil dengan t nyata dari lastQAgeTime,
- * bukan dari lastUpdateTime CCRouting — agar Eq.11 benar
- * kapanpun dipanggil (termasuk di awal updateQTableOnContact).
- * ═══════════════════════════════════════════════════════════════
+ * â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  * Catatan:
+  * Implementasi aging Eq.11 dilakukan per-entry Q[d][x] (berdasarkan timestamp
+  * terakhir entry tersebut di-update/di-age), bukan satu timestamp global.
+ * â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
  */
 public abstract class QLearningRouter extends ActiveRouter {
 
@@ -40,28 +39,30 @@ public abstract class QLearningRouter extends ActiveRouter {
 
 	// -------------------------------------------------------------------------
 	// Q-TABLE
-	// Dimensi: qvalues[d][x] ≡ Qd(s, x) di paper
+	// Dimensi: qvalues[d][x] â‰¡ Qd(s, x) di paper
 	// d = alamat destination node (0 .. totalDest-1)
 	// x = alamat relay/action node (0 .. totalAction-1)
-	// State 's' (buffer level) di-encode di CCRouting, tidak masuk indeks tabel.
+	// State 's' pada Qd(s,x) adalah node saat ini (sn). Karena tiap node menyimpan
+	// Q-table miliknya sendiri, dimensi 's' tidak menjadi indeks tabel eksplisit.
 	// -------------------------------------------------------------------------
 	protected double[][] qvalues;
 	protected int totalDest; // diisi oleh CCRouting dari config totalState
 	protected int totalAction; // diisi oleh CCRouting dari config totalAction
 
 	// -------------------------------------------------------------------------
-	// LEARNING PARAMETERS — nilai default sesuai paper Section 4.1
+	// LEARNING PARAMETERS â€” nilai default sesuai paper Section 4.1
 	// -------------------------------------------------------------------------
-	protected double learningRate = 0.8; // α
-	protected double discountFactor = 0.6; // γ (nilai statis; γd dihitung di CCRouting)
-	protected double agingOmega = 0.98; // ω untuk Eq.11
+	protected double learningRate = 0.8; // Î±
+	protected double discountFactor = 0.6; // Î³ (nilai statis; Î³d dihitung di CCRouting)
+	protected double agingOmega = 0.98; // Ï‰ untuk Eq.11
 
 	/**
-	 * Timestamp terakhir Q-table di-age.
-	 * Dipakai oleh ageQTable() untuk menghitung t pada Eq.11.
-	 * Di-reset ke 0.0 saat init agar aging pertama benar.
+	 * Timestamp terakhir setiap entry Q[d][x] di-update/di-age.
+	 * Paper mendefinisikan t pada Eq.11 per gossip entry, bukan satu global
+	 * timestamp untuk seluruh tabel.
 	 */
-	protected double lastQAgeTime = 0.0;
+	protected double[][] lastQUpdateTimes;
+	protected int qAgeTimeUnit = 30;
 
 	// -------------------------------------------------------------------------
 	// CONNECTION HISTORY
@@ -91,7 +92,7 @@ public abstract class QLearningRouter extends ActiveRouter {
 		this.learningRate = r.learningRate;
 		this.discountFactor = r.discountFactor;
 		this.agingOmega = r.agingOmega;
-		this.lastQAgeTime = 0.0;
+		this.qAgeTimeUnit = r.qAgeTimeUnit;
 		initQTable();
 	}
 
@@ -105,9 +106,39 @@ public abstract class QLearningRouter extends ActiveRouter {
 	 */
 	protected void initQTable() {
 		qvalues = new double[totalDest][];
+		lastQUpdateTimes = new double[totalDest][];
 		for (int i = 0; i < totalDest; i++) {
 			qvalues[i] = new double[totalAction];
+			lastQUpdateTimes[i] = new double[totalAction];
 		}
+	}
+
+	private boolean isValidDest(int destAddr) {
+		return destAddr >= 0 && destAddr < totalDest;
+	}
+
+	private boolean isValidAction(int actionAddr) {
+		return actionAddr >= 0 && actionAddr < totalAction;
+	}
+
+	private void ageQEntry(int destAddr, int actionAddr) {
+		ageQEntry(destAddr, actionAddr, qAgeTimeUnit);
+	}
+
+	private void ageQEntry(int destAddr, int actionAddr, int secInTimeUnit) {
+		if (!isValidDest(destAddr) || !isValidAction(actionAddr) || secInTimeUnit <= 0) {
+			return;
+		}
+
+		double now = SimClock.getTime();
+		double lastUpdate = lastQUpdateTimes[destAddr][actionAddr];
+		double timeDiff = (now - lastUpdate) / secInTimeUnit;
+		if (timeDiff <= 0) {
+			return;
+		}
+
+		qvalues[destAddr][actionAddr] *= Math.pow(agingOmega, timeDiff);
+		lastQUpdateTimes[destAddr][actionAddr] = now;
 	}
 
 	/**
@@ -115,64 +146,63 @@ public abstract class QLearningRouter extends ActiveRouter {
 	 * Return 0.0 jika indeks di luar batas.
 	 */
 	public double getQV(int destAddr, int actionAddr) {
-		if (destAddr < 0 || destAddr >= totalDest)
+		if (!isValidDest(destAddr) || !isValidAction(actionAddr))
 			return 0.0;
-		if (actionAddr < 0 || actionAddr >= totalAction)
-			return 0.0;
+		ageQEntry(destAddr, actionAddr);
 		return qvalues[destAddr][actionAddr];
 	}
 
 	/**
-	 * Eq.10 — Update Q saat encountered node x ADALAH destination d.
+	 * Eq.10 â€” Update Q saat encountered node x ADALAH destination d.
 	 *
-	 * Qd(s,x) ← (1-α) × Qd(s,x) + α × Rd(s,x)
+	 * Qd(s,x) â† (1-Î±) Ã— Qd(s,x) + Î± Ã— Rd(s,x)
 	 * Rd(s,x) = 1 (karena x == d)
 	 *
 	 * @param destAddr  alamat d (destination)
 	 * @param relayAddr alamat x (== destAddr dalam kasus ini)
 	 */
 	public void updateQDirect(int destAddr, int relayAddr) {
-		if (destAddr < 0 || destAddr >= totalDest)
-			return;
-		if (relayAddr < 0 || relayAddr >= totalAction)
+		if (!isValidDest(destAddr) || !isValidAction(relayAddr))
 			return;
 
+		ageQEntry(destAddr, relayAddr);
 		double oldQ = qvalues[destAddr][relayAddr];
 		// Eq.10: reward = 1, tidak ada discount term
 		qvalues[destAddr][relayAddr] = (1.0 - learningRate) * oldQ
 				+ learningRate * 1.0;
+		lastQUpdateTimes[destAddr][relayAddr] = SimClock.getTime();
 	}
 
 	/**
-	 * Eq.9 — Update Q saat encountered node x BUKAN destination d.
+	 * Eq.9 â€” Update Q saat encountered node x BUKAN destination d.
 	 *
-	 * Qd(s,x) ← (1-α) × Qd(s,x) + α × γd(s,x) × max_y(Qd(x,y)×P(x,y))
+	 * Qd(s,x) â† (1-Î±) Ã— Qd(s,x) + Î± Ã— Î³d(s,x) Ã— max_y(Qd(x,y)Ã—P(x,y))
 	 *
-	 * γd(s,x) = γ × BFx (Eq.7) sudah dihitung oleh CCRouting → dynamicDiscount.
+	 * Î³d(s,x) = Î³ Ã— BFx (Eq.7) sudah dihitung oleh CCRouting â†’ dynamicDiscount.
 	 * TIDAK ada perkalian BFx lagi di sini (sudah termasuk dalam dynamicDiscount).
 	 *
 	 * @param destAddr        alamat d
 	 * @param relayAddr       alamat x (relay, bukan destination)
-	 * @param dynamicDiscount γd(s,x) = γ × BFx (hasil Eq.7)
-	 * @param neighborMaxQP   max_y(Qd(x,y)×P(x,y)) (hasil Eq.8)
+	 * @param dynamicDiscount Î³d(s,x) = Î³ Ã— BFx (hasil Eq.7)
+	 * @param neighborMaxQP   max_y(Qd(x,y)Ã—P(x,y)) (hasil Eq.8)
 	 */
 	public void updateQRelay(int destAddr, int relayAddr,
 			double dynamicDiscount, double neighborMaxQP) {
-		if (destAddr < 0 || destAddr >= totalDest)
-			return;
-		if (relayAddr < 0 || relayAddr >= totalAction)
+		if (!isValidDest(destAddr) || !isValidAction(relayAddr))
 			return;
 
+		ageQEntry(destAddr, relayAddr);
 		double oldQ = qvalues[destAddr][relayAddr];
 		// Eq.9: reward = 0, suku reward gugur
 		qvalues[destAddr][relayAddr] = (1.0 - learningRate) * oldQ
 				+ learningRate * dynamicDiscount * neighborMaxQP;
+		lastQUpdateTimes[destAddr][relayAddr] = SimClock.getTime();
 	}
 
 	/**
-	 * Eq.11 — Aging seluruh Q-Table berdasarkan waktu nyata yang berlalu.
+	 * Eq.11 â€” Aging seluruh Q-Table berdasarkan waktu nyata yang berlalu.
 	 *
-	 * Qd(s,x) = Qd(s,x)_old × ω^t
+	 * Qd(s,x) = Qd(s,x)_old Ã— Ï‰^t
 	 * t = (now - lastQAgeTime) / secInTimeUnit
 	 *
 	 * Dapat dipanggil kapan saja: di awal encounter (Alg.1) dan periodik
@@ -181,39 +211,36 @@ public abstract class QLearningRouter extends ActiveRouter {
 	 * @param secInTimeUnit satuan waktu (detik per time unit)
 	 */
 	public void ageQTable(int secInTimeUnit) {
-		double now = SimClock.getTime();
-		double timeDiff = (now - lastQAgeTime) / secInTimeUnit;
-		if (timeDiff <= 0)
+		if (secInTimeUnit <= 0)
 			return;
 
-		double mult = Math.pow(agingOmega, timeDiff);
+		this.qAgeTimeUnit = secInTimeUnit;
 		for (int d = 0; d < totalDest; d++) {
 			for (int x = 0; x < totalAction; x++) {
-				qvalues[d][x] *= mult;
+				ageQEntry(d, x, secInTimeUnit);
 			}
 		}
-		lastQAgeTime = now;
 	}
 
 	/**
-	 * Eq.8 — Menghitung max_y∈Nx [ Qd(x,y) × P(x,y) ].
+	 * Eq.8 â€” Menghitung max_yâˆˆNx [ Qd(x,y) Ã— P(x,y) ].
 	 *
 	 * Dipanggil oleh node x (router tetangga) untuk menyediakan data
 	 * yang dibutuhkan node s dalam Eq.9.
 	 *
 	 * @param destAddr       alamat destination d
 	 * @param encounterProbs Map<nodeAddress, P(x,y)> milik node x
-	 * @return nilai maksimum Qd(x,y) × P(x,y) di antara semua y yang dikenal
+	 * @return nilai maksimum Qd(x,y) Ã— P(x,y) di antara semua y yang dikenal
 	 */
 	public double getNeighborMaxQPrime(int destAddr,
 			Map<Integer, Double> encounterProbs) {
-		if (destAddr < 0 || destAddr >= totalDest)
+		if (!isValidDest(destAddr))
 			return 0.0;
 
 		double maxVal = 0.0;
 		for (int y = 0; y < totalAction; y++) {
 			double prob = encounterProbs.getOrDefault(y, 0.0);
-			double val = qvalues[destAddr][y] * prob;
+			double val = getQV(destAddr, y) * prob;
 			if (val > maxVal)
 				maxVal = val;
 		}
@@ -225,10 +252,10 @@ public abstract class QLearningRouter extends ActiveRouter {
 	 * entry bernilai > 0 (artinya node sudah pernah belajar tentang dest ini).
 	 */
 	public boolean hasQEntry(int destAddr) {
-		if (destAddr < 0 || destAddr >= totalDest)
+		if (!isValidDest(destAddr))
 			return false;
 		for (int x = 0; x < totalAction; x++) {
-			if (qvalues[destAddr][x] > 0.0)
+			if (getQV(destAddr, x) > 0.0)
 				return true;
 		}
 		return false;
@@ -242,14 +269,15 @@ public abstract class QLearningRouter extends ActiveRouter {
 	 * @return alamat relay terbaik (index), atau -1 jika destAddr invalid
 	 */
 	public int getBestAction(int destAddr) {
-		if (destAddr < 0 || destAddr >= totalDest)
+		if (!isValidDest(destAddr))
 			return -1;
 
 		int bestAction = 0;
-		double bestVal = qvalues[destAddr][0];
+		double bestVal = getQV(destAddr, 0);
 		for (int x = 1; x < totalAction; x++) {
-			if (qvalues[destAddr][x] > bestVal) {
-				bestVal = qvalues[destAddr][x];
+			double qValue = getQV(destAddr, x);
+			if (qValue > bestVal) {
+				bestVal = qValue;
 				bestAction = x;
 			}
 		}
@@ -263,12 +291,13 @@ public abstract class QLearningRouter extends ActiveRouter {
 	 * @return max Qd(s,x) di antara semua x, atau 0.0 jika invalid
 	 */
 	public double getBestQValue(int destAddr) {
-		if (destAddr < 0 || destAddr >= totalDest)
+		if (!isValidDest(destAddr))
 			return 0.0;
 		double best = 0.0;
 		for (int x = 0; x < totalAction; x++) {
-			if (qvalues[destAddr][x] > best)
-				best = qvalues[destAddr][x];
+			double qValue = getQV(destAddr, x);
+			if (qValue > best)
+				best = qValue;
 		}
 		return best;
 	}

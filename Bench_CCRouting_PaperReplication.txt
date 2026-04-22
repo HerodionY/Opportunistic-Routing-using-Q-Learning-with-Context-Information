@@ -1,0 +1,96 @@
+#
+# CCRouting paper replication baseline
+# Based on Bench_CCRouting.txt but with message lifetime = 300 seconds (5 minutes).
+#
+
+## Scenario settings
+Scenario.name = ORQLCI_ShortestMap_PaperReplication
+Scenario.simulateConnections = true
+Scenario.updateInterval = 0.1
+Scenario.endTime = 43200
+
+## Interface settings
+btInterface.type = SimpleBroadcastInterface
+btInterface.transmitSpeed = 250k
+btInterface.transmitRange = 10
+
+## Group settings
+Scenario.nrofHostGroups = 6
+
+Group.movementModel = ShortestPathMapBasedMovement
+Group.router = CCRouting
+Group.bufferSize = 50M
+Group.waitTime = 0, 120
+Group.nrofInterfaces = 1
+Group.interface1 = btInterface
+Group.speed = 0.5, 1.5
+# The ONE uses minutes for msgTtl; 5 minutes == 300 seconds.
+Group.msgTtl = 5
+
+# --- NODE DISTRIBUTIONS (Total 200) ---
+Group1.groupID = p
+Group1.nrofHosts = 64
+
+Group2.groupID = c
+Group2.speed = 2.7, 13.9
+Group2.nrofHosts = 64
+
+Group3.groupID = w
+Group3.nrofHosts = 66
+
+Group4.groupID = t
+Group4.nrofHosts = 2
+
+Group5.groupID = t
+Group5.nrofHosts = 2
+
+Group6.groupID = t
+Group6.nrofHosts = 2
+
+## CCRouting (ORQLCI) Settings
+# updateInterval hanya untuk ageQTable(), Q-update sudah realtime
+CCRouting.updateInterval = 30
+# totalState = jumlah node = dimensi dest Q-table
+CCRouting.totalState  = 200
+# totalAction = jumlah node = dimensi action Q-table
+CCRouting.totalAction = 200
+# Parameter sesuai paper Section 4.1
+CCRouting.baseDiscountGamma = 0.6
+CCRouting.learningCoeff = 0.8
+
+## Message creation parameters
+Events.nrof = 1
+Events1.class = MessageEventGenerator
+Events1.interval = 15, 25
+Events1.size = 500k, 1M
+Events1.hosts = 0, 199
+Events1.prefix = M
+
+## Movement model settings
+MovementModel.rngSeed = 1
+MovementModel.worldSize = 4500, 3400
+MovementModel.warmup = 1000
+
+MapBasedMovement.nrofMapFiles = 4
+MapBasedMovement.mapFile1 = data/roads.wkt
+MapBasedMovement.mapFile2 = data/main_roads.wkt
+MapBasedMovement.mapFile3 = data/pedestrian_paths.wkt
+MapBasedMovement.mapFile4 = data/shops.wkt
+
+## Reports
+Report.nrofReports = 2
+Report.warmup = 1000
+Report.reportDir = testing/ORQLCI_ShortestMap_PaperReplication/1/
+Report.report1 = MessageStatsReport
+Report.report2 = ContactTimesReport
+
+## Optimization
+Optimization.cellSizeMult = 5
+Optimization.randomizeUpdateOrder = true
+
+## GUI
+GUI.UnderlayImage.fileName = data/helsinki_underlay.png
+GUI.UnderlayImage.offset = 64, 20
+GUI.UnderlayImage.scale = 4.75
+GUI.UnderlayImage.rotate = -0.015
+GUI.EventLogPanel.nrofEvents = 100

@@ -222,6 +222,25 @@ public class DTNHost implements Comparable<DTNHost> {
     }
 
     /**
+     * Returns the current movement destination of this host or null if the host
+     * is not moving towards any waypoint at the moment.
+     *
+     * @return The current destination waypoint or null
+     */
+    public Coord getDestination() {
+        return this.destination == null ? null : this.destination.clone();
+    }
+
+    /**
+     * Returns the current movement speed of this host.
+     *
+     * @return The speed towards the current destination
+     */
+    public double getSpeed() {
+        return this.speed;
+    }
+
+    /**
      * Returns the Path this node is currently traveling or null if no path is
      * in use at the moment.
      *

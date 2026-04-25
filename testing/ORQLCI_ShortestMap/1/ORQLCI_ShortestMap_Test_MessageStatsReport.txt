@@ -1,0 +1,20 @@
+Message stats for scenario ORQLCI_ShortestMap_Test
+sim_time: 43200.1000
+created: 2152
+started: 93132
+relayed: 44722
+aborted: 48403
+dropped: 34179
+removed: 0
+delivered: 1372
+delivery_prob: 0.6375
+response_prob: 0.0000
+overhead_ratio: 31.5962
+latency_avg: 6624.0080
+latency_med: 5618.9000
+hopcount_avg: 2.1239
+hopcount_med: 2
+buffertime_avg: 8577.0828
+buffertime_med: 8512.6000
+rtt_avg: NaN
+rtt_med: NaN

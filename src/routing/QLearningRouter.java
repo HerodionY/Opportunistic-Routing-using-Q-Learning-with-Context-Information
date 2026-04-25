@@ -1,72 +1,70 @@
 package routing;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-
 import core.Connection;
 import core.DTNHost;
 import core.Message;
 import core.Settings;
 import core.SimClock;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
 import routing.community.Duration;
-import core.Tuple;
 
 /**
- * QLearningRouter â€” Abstract base class untuk ORQLCI routing.
- *
- * Bertanggung jawab atas:
- * - Struktur Q-Table: qvalues[dest][relay] sesuai notasi Qd(s,x) di paper
- * - Operasi Q-Table: updateQDirect (Eq.10), updateQRelay (Eq.9),
- * ageQTable (Eq.11), getNeighborMaxQPrime (Eq.8)
- * - Pencatatan connection history (startTimestamps, connHistory)
- * - Topic assignment untuk InterestReport
- *
- * Referensi: Liu et al., "Opportunistic Routing using Q-Learning
- * with Context Information", Section 3.2
- *
- * â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-  * Catatan:
-  * Implementasi aging Eq.11 dilakukan per-entry Q[d][x] (berdasarkan timestamp
-  * terakhir entry tersebut di-update/di-age), bukan satu timestamp global.
- * â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+ * Base router yang mengimplementasikan Q-Learning untuk Opportunistic Networks.
+ * 
+ * Q-Table Structure:
+ * - Dynamic HashMap: qvalues[destAddr][actionAddr] = Q-value
+ * - destAddr: alamat destination node (0 hingga max nodes)
+ * - actionAddr: alamat relay/action node (0 hingga max nodes)
+ * - State 's' implicit (setiap node punya Q-table sendiri)
+ * 
+ * Sesuai paper ORQLCI Section 3.2:
+ * - Eq. 9: Update Q saat relay bukan destination
+ * - Eq. 10: Update Q saat relay adalah destination
+ * - Eq. 11: Q-value aging over time
  */
 public abstract class QLearningRouter extends ActiveRouter {
 
 	public static final String MESSAGE_TOPICS_S = "topic";
 
-	// -------------------------------------------------------------------------
-	// Q-TABLE
-	// Dimensi: qvalues[d][x] â‰¡ Qd(s, x) di paper
-	// d = alamat destination node (0 .. totalDest-1)
-	// x = alamat relay/action node (0 .. totalAction-1)
-	// State 's' pada Qd(s,x) adalah node saat ini (sn). Karena tiap node menyimpan
-	// Q-table miliknya sendiri, dimensi 's' tidak menjadi indeks tabel eksplisit.
-	// -------------------------------------------------------------------------
-	protected double[][] qvalues;
-	protected int totalDest; // diisi oleh CCRouting dari config totalState
-	protected int totalAction; // diisi oleh CCRouting dari config totalAction
+	// =========================================================================
+	// Q-TABLE - DYNAMIC STRUCTURE (FIX BUG #1)
+	// =========================================================================
 
-	// -------------------------------------------------------------------------
-	// LEARNING PARAMETERS â€” nilai default sesuai paper Section 4.1
-	// -------------------------------------------------------------------------
-	protected double learningRate = 0.8; // Î±
-	protected double discountFactor = 0.6; // Î³ (nilai statis; Î³d dihitung di CCRouting)
-	protected double agingOmega = 0.98; // Ï‰ untuk Eq.11
+	/**
+	 * Q-Table: qvalues[destAddr][actionAddr] = Qd(s,x)
+	 * - Outer map: destination address → inner map
+	 * - Inner map: action/relay address → Q-value
+	 * 
+	 * Menggunakan HashMap untuk:
+	 * 1. Memory efficiency (hanya store yang dipakai)
+	 * 2. Scalability (tidak perlu tahu max nodes di awal)
+	 * 3. Sesuai paper: "dynamic Q-table"
+	 */
+	protected Map<Integer, Map<Integer, Double>> qvalues;
 
 	/**
 	 * Timestamp terakhir setiap entry Q[d][x] di-update/di-age.
-	 * Paper mendefinisikan t pada Eq.11 per gossip entry, bukan satu global
-	 * timestamp untuk seluruh tabel.
+	 * Structure sama dengan qvalues untuk consistency.
 	 */
-	protected double[][] lastQUpdateTimes;
-	protected int qAgeTimeUnit = 30;
+	protected Map<Integer, Map<Integer, Double>> lastQUpdateTimes;
 
-	// -------------------------------------------------------------------------
+	// =========================================================================
+	// LEARNING PARAMETERS (sesuai paper Section 4.1)
+	// =========================================================================
+
+	protected double learningRate = 0.8; // α - learning coefficient
+	protected double discountFactor = 0.6; // γ - base discount factor
+	protected double agingOmega = 0.98; // ω - aging constant (Eq. 11)
+	protected int qAgeTimeUnit = 30; // Time unit untuk aging (30s)
+
+	// =========================================================================
 	// CONNECTION HISTORY
-	// -------------------------------------------------------------------------
+	// =========================================================================
+
 	protected Map<DTNHost, Double> startTimestamps;
 	protected Map<DTNHost, List<Duration>> connHistory;
 
@@ -78,8 +76,6 @@ public abstract class QLearningRouter extends ActiveRouter {
 		super(s);
 		this.startTimestamps = new HashMap<>();
 		this.connHistory = new HashMap<>();
-		this.totalDest = 5;
-		this.totalAction = 5;
 		initQTable();
 	}
 
@@ -87,8 +83,6 @@ public abstract class QLearningRouter extends ActiveRouter {
 		super(r);
 		this.startTimestamps = new HashMap<>();
 		this.connHistory = new HashMap<>();
-		this.totalDest = r.totalDest;
-		this.totalAction = r.totalAction;
 		this.learningRate = r.learningRate;
 		this.discountFactor = r.discountFactor;
 		this.agingOmega = r.agingOmega;
@@ -97,209 +91,353 @@ public abstract class QLearningRouter extends ActiveRouter {
 	}
 
 	// =========================================================================
-	// Q-TABLE OPERATIONS
+	// Q-TABLE OPERATIONS (FIXED!)
 	// =========================================================================
 
 	/**
-	 * Inisialisasi Q-Table dengan semua nilai = 0.
-	 * Dipanggil setelah totalDest & totalAction di-set oleh CCRouting.
+	 * Inisialisasi Q-Table sebagai dynamic HashMap.
+	 * Tidak perlu parameter totalDest/totalAction!
 	 */
 	protected void initQTable() {
-		qvalues = new double[totalDest][];
-		lastQUpdateTimes = new double[totalDest][];
-		for (int i = 0; i < totalDest; i++) {
-			qvalues[i] = new double[totalAction];
-			lastQUpdateTimes[i] = new double[totalAction];
-		}
+		qvalues = new HashMap<>();
+		lastQUpdateTimes = new HashMap<>();
 	}
 
-	private boolean isValidDest(int destAddr) {
-		return destAddr >= 0 && destAddr < totalDest;
+	/**
+	 * Memastikan entry untuk (destAddr, actionAddr) ada di Q-table.
+	 * Jika belum ada, buat dengan nilai default 0.0.
+	 * 
+	 * @param destAddr   destination address
+	 * @param actionAddr action/relay address
+	 */
+	private void ensureQEntry(int destAddr, int actionAddr) {
+		qvalues.putIfAbsent(destAddr, new HashMap<>());
+		lastQUpdateTimes.putIfAbsent(destAddr, new HashMap<>());
+
+		qvalues.get(destAddr).putIfAbsent(actionAddr, 0.0);
+		lastQUpdateTimes.get(destAddr).putIfAbsent(actionAddr, 0.0);
 	}
 
-	private boolean isValidAction(int actionAddr) {
-		return actionAddr >= 0 && actionAddr < totalAction;
+	/**
+	 * Validasi alamat node (harus non-negative).
+	 */
+	private boolean isValidAddress(int addr) {
+		return addr >= 0;
 	}
 
-	private void ageQEntry(int destAddr, int actionAddr) {
-		ageQEntry(destAddr, actionAddr, qAgeTimeUnit);
-	}
-
+	/**
+	 * Age satu entry Q-table berdasarkan waktu yang berlalu.
+	 * Hanya dipanggil pada entry yang SUDAH ADA — tidak membuat entry baru.
+	 *
+	 * Eq. 11 (paper): Qd(s,x) = Qd(s,x)_old × ω^t
+	 * di mana t = (now - lastUpdate) / timeUnit
+	 *
+	 * @param destAddr      destination address
+	 * @param actionAddr    action address
+	 * @param secInTimeUnit detik per time unit
+	 */
 	private void ageQEntry(int destAddr, int actionAddr, int secInTimeUnit) {
-		if (!isValidDest(destAddr) || !isValidAction(actionAddr) || secInTimeUnit <= 0) {
+		if (!isValidAddress(destAddr) || !isValidAddress(actionAddr)) {
+			return;
+		}
+		if (secInTimeUnit <= 0) {
+			return;
+		}
+
+		// Guard: hanya age entry yang sudah ada, jangan buat entry baru
+		Map<Integer, Double> actionMap = qvalues.get(destAddr);
+		if (actionMap == null || !actionMap.containsKey(actionAddr)) {
 			return;
 		}
 
 		double now = SimClock.getTime();
-		double lastUpdate = lastQUpdateTimes[destAddr][actionAddr];
+		double lastUpdate = lastQUpdateTimes.get(destAddr).get(actionAddr);
 		double timeDiff = (now - lastUpdate) / secInTimeUnit;
+
 		if (timeDiff <= 0) {
 			return;
 		}
 
-		qvalues[destAddr][actionAddr] *= Math.pow(agingOmega, timeDiff);
-		lastQUpdateTimes[destAddr][actionAddr] = now;
+		// Eq. 11: Apply aging
+		double currentQ = actionMap.get(actionAddr);
+		double agedQ = currentQ * Math.pow(agingOmega, timeDiff);
+
+		actionMap.put(actionAddr, agedQ);
+		lastQUpdateTimes.get(destAddr).put(actionAddr, now);
 	}
 
 	/**
-	 * Membaca Qd(s,x) = qvalues[destAddr][actionAddr].
-	 * Return 0.0 jika indeks di luar batas.
+	 * Membaca Q-value: Qd(s,x).
+	 * Hanya meng-age entry yang sudah ada; TIDAK membuat entry baru.
+	 * Jika entry belum ada, return 0.0 tanpa side effect.
+	 *
+	 * @param destAddr   destination address
+	 * @param actionAddr action/relay address
+	 * @return Q-value ter-age, atau 0.0 jika belum ada entry
 	 */
 	public double getQV(int destAddr, int actionAddr) {
-		if (!isValidDest(destAddr) || !isValidAction(actionAddr))
+		if (!isValidAddress(destAddr) || !isValidAddress(actionAddr)) {
 			return 0.0;
-		ageQEntry(destAddr, actionAddr);
-		return qvalues[destAddr][actionAddr];
+		}
+
+		// Jika entry belum ada, return 0.0 tanpa menciptakan entry baru
+		Map<Integer, Double> actionMap = qvalues.get(destAddr);
+		if (actionMap == null || !actionMap.containsKey(actionAddr)) {
+			return 0.0;
+		}
+
+		// Age entry yang sudah ada, lalu return
+		ageQEntry(destAddr, actionAddr, qAgeTimeUnit);
+		return qvalues.get(destAddr).get(actionAddr);
 	}
 
 	/**
-	 * Eq.10 â€” Update Q saat encountered node x ADALAH destination d.
+	 * Update Q-value saat encountered node x ADALAH destination d.
 	 *
-	 * Qd(s,x) â† (1-Î±) Ã— Qd(s,x) + Î± Ã— Rd(s,x)
-	 * Rd(s,x) = 1 (karena x == d)
+	 * Eq. 10 (paper):
+	 * Qd(s,x) ← (1-α) × Qd(s,x) + α × Rd(s,x)
+	 * di mana Rd(s,x) = 1 (karena x == d)
 	 *
-	 * @param destAddr  alamat d (destination)
-	 * @param relayAddr alamat x (== destAddr dalam kasus ini)
+	 * Aging dilakukan sekali di sini — TIDAK boleh dipanggil setelah
+	 * ageQTable() sudah meng-age entry yang sama dalam satu cycle.
+	 *
+	 * @param destAddr  alamat destination d
+	 * @param relayAddr alamat relay x (sama dengan destAddr)
 	 */
 	public void updateQDirect(int destAddr, int relayAddr) {
-		if (!isValidDest(destAddr) || !isValidAction(relayAddr))
+		if (!isValidAddress(destAddr) || !isValidAddress(relayAddr)) {
 			return;
+		}
 
-		ageQEntry(destAddr, relayAddr);
-		double oldQ = qvalues[destAddr][relayAddr];
-		// Eq.10: reward = 1, tidak ada discount term
-		qvalues[destAddr][relayAddr] = (1.0 - learningRate) * oldQ
-				+ learningRate * 1.0;
-		lastQUpdateTimes[destAddr][relayAddr] = SimClock.getTime();
+		// Pastikan entry ada sebelum update
+		ensureQEntry(destAddr, relayAddr);
+
+		// Baca Q-value yang sudah ter-age (ageQEntry sudah dipanggil oleh ageQTable sebelumnya)
+		double oldQ = qvalues.get(destAddr).get(relayAddr);
+
+		// Eq. 10: reward = 1
+		double newQ = (1.0 - learningRate) * oldQ + learningRate * 1.0;
+
+		qvalues.get(destAddr).put(relayAddr, newQ);
+		lastQUpdateTimes.get(destAddr).put(relayAddr, SimClock.getTime());
 	}
 
 	/**
-	 * Eq.9 â€” Update Q saat encountered node x BUKAN destination d.
+	 * Update Q-value saat encountered node x BUKAN destination d.
 	 *
-	 * Qd(s,x) â† (1-Î±) Ã— Qd(s,x) + Î± Ã— Î³d(s,x) Ã— max_y(Qd(x,y)Ã—P(x,y))
+	 * Eq. 9 (paper):
+	 * Qd(s,x) ← (1-α) × Qd(s,x) + α × γd(s,x) × max_y[Qd(x,y)×P(x,y)]
 	 *
-	 * Î³d(s,x) = Î³ Ã— BFx (Eq.7) sudah dihitung oleh CCRouting â†’ dynamicDiscount.
-	 * TIDAK ada perkalian BFx lagi di sini (sudah termasuk dalam dynamicDiscount).
+	 * di mana:
+	 * - γd(s,x) = γ × BFx (Eq. 7) → dynamicDiscount
+	 * - max_y[Qd(x,y)×P(x,y)] (Eq. 8) → neighborMaxQP
 	 *
-	 * @param destAddr        alamat d
-	 * @param relayAddr       alamat x (relay, bukan destination)
-	 * @param dynamicDiscount Î³d(s,x) = Î³ Ã— BFx (hasil Eq.7)
-	 * @param neighborMaxQP   max_y(Qd(x,y)Ã—P(x,y)) (hasil Eq.8)
+	 * Aging dilakukan sekali di sini — TIDAK boleh dipanggil setelah
+	 * ageQTable() sudah meng-age entry yang sama dalam satu cycle.
+	 *
+	 * @param destAddr        alamat destination d
+	 * @param relayAddr       alamat relay x (bukan destination)
+	 * @param dynamicDiscount γd(s,x) = γ × BFx dari Eq. 7
+	 * @param neighborMaxQP   max_y[Qd(x,y)×P(x,y)] dari Eq. 8
 	 */
 	public void updateQRelay(int destAddr, int relayAddr,
 			double dynamicDiscount, double neighborMaxQP) {
-		if (!isValidDest(destAddr) || !isValidAction(relayAddr))
-			return;
 
-		ageQEntry(destAddr, relayAddr);
-		double oldQ = qvalues[destAddr][relayAddr];
-		// Eq.9: reward = 0, suku reward gugur
-		qvalues[destAddr][relayAddr] = (1.0 - learningRate) * oldQ
+		if (!isValidAddress(destAddr) || !isValidAddress(relayAddr)) {
+			return;
+		}
+
+		// Pastikan entry ada sebelum update
+		ensureQEntry(destAddr, relayAddr);
+
+		// Baca Q-value yang sudah ter-age (ageQEntry sudah dipanggil oleh ageQTable sebelumnya)
+		double oldQ = qvalues.get(destAddr).get(relayAddr);
+
+		// Eq. 9
+		double newQ = (1.0 - learningRate) * oldQ
 				+ learningRate * dynamicDiscount * neighborMaxQP;
-		lastQUpdateTimes[destAddr][relayAddr] = SimClock.getTime();
+
+		qvalues.get(destAddr).put(relayAddr, newQ);
+		lastQUpdateTimes.get(destAddr).put(relayAddr, SimClock.getTime());
 	}
 
 	/**
-	 * Eq.11 â€” Aging seluruh Q-Table berdasarkan waktu nyata yang berlalu.
+	 * Age seluruh Q-Table (semua entries yang sudah ada).
+	 * Tidak mengubah qAgeTimeUnit — tidak ada side effect pada state.
 	 *
-	 * Qd(s,x) = Qd(s,x)_old Ã— Ï‰^t
-	 * t = (now - lastQAgeTime) / secInTimeUnit
-	 *
-	 * Dapat dipanggil kapan saja: di awal encounter (Alg.1) dan periodik
-	 * dari CCRouting.update(). lastQAgeTime diperbarui setelah aging.
-	 *
-	 * @param secInTimeUnit satuan waktu (detik per time unit)
+	 * @param secInTimeUnit detik per time unit untuk aging
 	 */
 	public void ageQTable(int secInTimeUnit) {
-		if (secInTimeUnit <= 0)
+		if (secInTimeUnit <= 0) {
 			return;
+		}
 
-		this.qAgeTimeUnit = secInTimeUnit;
-		for (int d = 0; d < totalDest; d++) {
-			for (int x = 0; x < totalAction; x++) {
-				ageQEntry(d, x, secInTimeUnit);
+		// Iterate semua entries yang ada — tidak membuat entry baru
+		for (Map.Entry<Integer, Map<Integer, Double>> destEntry : qvalues.entrySet()) {
+			int destAddr = destEntry.getKey();
+			for (Integer actionAddr : destEntry.getValue().keySet()) {
+				ageQEntry(destAddr, actionAddr, secInTimeUnit);
 			}
 		}
 	}
 
 	/**
-	 * Eq.8 â€” Menghitung max_yâˆˆNx [ Qd(x,y) Ã— P(x,y) ].
-	 *
-	 * Dipanggil oleh node x (router tetangga) untuk menyediakan data
-	 * yang dibutuhkan node s dalam Eq.9.
+	 * Menghitung max_y∈Nx [Qd(x,y) × P(x,y)] (Eq. 8).
+	 * Membaca Q-table milik THIS node (node x / relay).
+	 * Dipanggil via otherRouter.getNeighborMaxQPrime() dari node s.
 	 *
 	 * @param destAddr       alamat destination d
-	 * @param encounterProbs Map<nodeAddress, P(x,y)> milik node x
-	 * @return nilai maksimum Qd(x,y) Ã— P(x,y) di antara semua y yang dikenal
+	 * @param encounterProbs Map<neighborAddr, P(x,neighbor)> milik node x
+	 * @return nilai maksimum Qd(x,y) × P(x,y), atau 0.0 jika tidak ada data
 	 */
 	public double getNeighborMaxQPrime(int destAddr,
 			Map<Integer, Double> encounterProbs) {
-		if (!isValidDest(destAddr))
+
+		if (!isValidAddress(destAddr)) {
 			return 0.0;
+		}
+		if (encounterProbs == null || encounterProbs.isEmpty()) {
+			return 0.0;
+		}
 
 		double maxVal = 0.0;
-		for (int y = 0; y < totalAction; y++) {
-			double prob = encounterProbs.getOrDefault(y, 0.0);
-			double val = getQV(destAddr, y) * prob;
-			if (val > maxVal)
+
+		for (Map.Entry<Integer, Double> entry : encounterProbs.entrySet()) {
+			int neighborAddr = entry.getKey();
+			double prob = entry.getValue();
+
+			if (!isValidAddress(neighborAddr)) {
+				continue;
+			}
+
+			// getQV tidak membuat entry baru jika belum ada — aman
+			double qVal = getQV(destAddr, neighborAddr);
+			double val = qVal * prob;
+
+			if (val > maxVal) {
 				maxVal = val;
+			}
 		}
+
 		return maxVal;
 	}
 
 	/**
-	 * Cek apakah Q-table untuk destination ini punya setidaknya satu
-	 * entry bernilai > 0 (artinya node sudah pernah belajar tentang dest ini).
+	 * Cek apakah ada Q-entry dengan nilai > 0 untuk destination tertentu.
+	 * Membaca langsung dari map tanpa memanggil getQV() untuk menghindari
+	 * side effect aging yang tidak perlu saat hanya ingin cek keberadaan.
+	 *
+	 * @param destAddr destination address
+	 * @return true jika ada minimal 1 action dengan Q > 0 (setelah aging)
 	 */
 	public boolean hasQEntry(int destAddr) {
-		if (!isValidDest(destAddr))
+		if (!isValidAddress(destAddr)) {
 			return false;
-		for (int x = 0; x < totalAction; x++) {
-			if (getQV(destAddr, x) > 0.0)
-				return true;
 		}
+
+		Map<Integer, Double> actionMap = qvalues.get(destAddr);
+		if (actionMap == null || actionMap.isEmpty()) {
+			return false;
+		}
+
+		// Cek apakah ada action dengan Q > 0 setelah aging
+		for (Map.Entry<Integer, Double> entry : actionMap.entrySet()) {
+			int actionAddr = entry.getKey();
+			// Age entry dulu sebelum cek nilainya
+			ageQEntry(destAddr, actionAddr, qAgeTimeUnit);
+			if (qvalues.get(destAddr).get(actionAddr) > 0.0) {
+				return true;
+			}
+		}
+
 		return false;
 	}
 
 	/**
-	 * Greedy: mengembalikan alamat node dengan Q-value tertinggi
-	 * untuk destination tertentu.
-	 * a* = argmax_x Qd(s, x)
+	 * Greedy action selection: a* = argmax_x Qd(s, x).
+	 * Membaca langsung dari map dan age entry yang ada.
 	 *
-	 * @return alamat relay terbaik (index), atau -1 jika destAddr invalid
+	 * @param destAddr destination address
+	 * @return alamat relay terbaik, atau -1 jika tidak ada entry
 	 */
 	public int getBestAction(int destAddr) {
-		if (!isValidDest(destAddr))
+		if (!isValidAddress(destAddr)) {
 			return -1;
+		}
 
-		int bestAction = 0;
-		double bestVal = getQV(destAddr, 0);
-		for (int x = 1; x < totalAction; x++) {
-			double qValue = getQV(destAddr, x);
-			if (qValue > bestVal) {
-				bestVal = qValue;
-				bestAction = x;
+		Map<Integer, Double> actionMap = qvalues.get(destAddr);
+		if (actionMap == null || actionMap.isEmpty()) {
+			return -1;
+		}
+
+		int bestAction = -1;
+		double bestVal = Double.NEGATIVE_INFINITY;
+
+		for (Map.Entry<Integer, Double> entry : actionMap.entrySet()) {
+			int actionAddr = entry.getKey();
+			// Age entry sebelum baca — tidak membuat entry baru
+			ageQEntry(destAddr, actionAddr, qAgeTimeUnit);
+			double qVal = qvalues.get(destAddr).get(actionAddr);
+
+			if (qVal > bestVal) {
+				bestVal = qVal;
+				bestAction = actionAddr;
 			}
 		}
+
 		return bestAction;
 	}
 
 	/**
-	 * Mengembalikan Q-value terbaik untuk destination tertentu.
-	 * Berguna untuk gradient check di Alg.2.
+	 * Mendapatkan Q-value terbaik untuk destination tertentu.
 	 *
-	 * @return max Qd(s,x) di antara semua x, atau 0.0 jika invalid
+	 * @param destAddr destination address
+	 * @return max Qd(s,x) di antara semua x yang ada
 	 */
 	public double getBestQValue(int destAddr) {
-		if (!isValidDest(destAddr))
+		if (!isValidAddress(destAddr)) {
 			return 0.0;
-		double best = 0.0;
-		for (int x = 0; x < totalAction; x++) {
-			double qValue = getQV(destAddr, x);
-			if (qValue > best)
-				best = qValue;
 		}
-		return best;
+
+		Map<Integer, Double> actionMap = qvalues.get(destAddr);
+		if (actionMap == null || actionMap.isEmpty()) {
+			return 0.0;
+		}
+
+		double bestVal = 0.0;
+
+		for (Map.Entry<Integer, Double> entry : actionMap.entrySet()) {
+			int actionAddr = entry.getKey();
+			ageQEntry(destAddr, actionAddr, qAgeTimeUnit);
+			double qVal = qvalues.get(destAddr).get(actionAddr);
+
+			if (qVal > bestVal) {
+				bestVal = qVal;
+			}
+		}
+
+		return bestVal;
+	}
+
+	/**
+	 * Mendapatkan semua actions yang tersedia untuk destination tertentu.
+	 * 
+	 * @param destAddr destination address
+	 * @return list of action addresses, atau empty list
+	 */
+	public List<Integer> getAvailableActions(int destAddr) {
+		List<Integer> actions = new ArrayList<>();
+
+		if (!isValidAddress(destAddr)) {
+			return actions;
+		}
+
+		if (!qvalues.containsKey(destAddr)) {
+			return actions;
+		}
+
+		actions.addAll(qvalues.get(destAddr).keySet());
+		return actions;
 	}
 
 	// =========================================================================
@@ -307,7 +445,7 @@ public abstract class QLearningRouter extends ActiveRouter {
 	// =========================================================================
 
 	/**
-	 * Mencatat waktu mulai & akhir koneksi ke connHistory.
+	 * Mencatat waktu mulai & akhir koneksi.
 	 */
 	@Override
 	public void changedConnection(Connection con) {
@@ -319,6 +457,7 @@ public abstract class QLearningRouter extends ActiveRouter {
 			if (startTimestamps.containsKey(peer)) {
 				double start = startTimestamps.remove(peer);
 				double end = SimClock.getTime();
+
 				if (end - start > 0) {
 					connHistory.computeIfAbsent(peer, k -> new LinkedList<>())
 							.add(new Duration(start, end));
@@ -328,7 +467,7 @@ public abstract class QLearningRouter extends ActiveRouter {
 	}
 
 	// =========================================================================
-	// MESSAGE CREATION (topic untuk InterestReport)
+	// MESSAGE CREATION
 	// =========================================================================
 
 	@Override
@@ -336,16 +475,18 @@ public abstract class QLearningRouter extends ActiveRouter {
 		makeRoomForNewMessage(msg.getSize());
 		msg.setTtl(this.msgTtl);
 
+		// Add random topics untuk InterestReport (jika dipakai)
 		List<Boolean> topics = new ArrayList<>();
 		for (int i = 0; i < 5; i++) {
 			topics.add(Math.random() < 0.5);
 		}
 		msg.addProperty(MESSAGE_TOPICS_S, topics);
+
 		return super.createNewMessage(msg);
 	}
 
 	// =========================================================================
-	// ABSTRACT
+	// ABSTRACT & OVERRIDES
 	// =========================================================================
 
 	@Override
@@ -370,5 +511,26 @@ public abstract class QLearningRouter extends ActiveRouter {
 
 	public double getAgingOmega() {
 		return agingOmega;
+	}
+
+	/**
+	 * Debug: print Q-table statistics.
+	 */
+	public String getQTableStats() {
+		int totalDests = qvalues.size();
+		int totalEntries = 0;
+		double totalQValue = 0.0;
+
+		for (Map<Integer, Double> actionMap : qvalues.values()) {
+			totalEntries += actionMap.size();
+			for (Double qVal : actionMap.values()) {
+				totalQValue += qVal;
+			}
+		}
+
+		double avgQ = totalEntries > 0 ? totalQValue / totalEntries : 0.0;
+
+		return String.format("Q-Table: %d dests, %d entries, avg Q=%.4f",
+				totalDests, totalEntries, avgQ);
 	}
 }

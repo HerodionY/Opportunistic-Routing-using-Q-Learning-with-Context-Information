@@ -1,0 +1,10 @@
+Run 1/1
+Running simulation 'Prophet_Reality_Baseline'
+60.0 721222: 12020.17 1/s
+120.0 1083916: 6044.80 1/s
+180.0 1317636: 3895.27 1/s
+240.0 1479945: 2705.10 1/s
+276.2 1698181: 6031.62 1/s
+Simulation done in 276.07s
+---
+All done in 276.39s

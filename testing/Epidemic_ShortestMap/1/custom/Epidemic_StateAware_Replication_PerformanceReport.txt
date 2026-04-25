@@ -1,0 +1,11 @@
+Performance Report for scenario Epidemic_StateAware_Replication
+Simulation time: 43200.1000
+
+Delivery Ratio: 0.2508
+Overhead Ratio: 103.5399
+Average Latency: 4292.7488
+
+Router used: EpidemicRouter
+Created Messages: 2895
+Relayed Messages: 75896
+Delivered Messages: 726

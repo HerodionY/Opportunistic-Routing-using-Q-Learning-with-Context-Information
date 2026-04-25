@@ -21,13 +21,11 @@ Scenario.nrofHostGroups = 1
 
 ## Common settings for all groups
 Group.movementModel = StationaryMovement
-# SWITCH TO ORQLCI
 Group.router = CCRouting
-# Buffer 10MB sesuai settingan Haggle kamu
 Group.bufferSize = 10M
 Group.nrofInterfaces = 1
 Group.interface1 = btInterface
-# TTL 360 menit (6 jam)
+# TTL 2880 menit (2 hari) — cukup untuk trace 3 hari
 Group.msgTtl = 2880
 
 # --- NODE DISTRIBUTIONS ---
@@ -35,17 +33,18 @@ Group1.groupID = P
 Group1.nrofHosts = 41
 Group1.nodeLocation = 10, 10
 
-## CCRouting (ORQLCI) settings
-# Karena Haggle lebih padat, kita set update AI tiap 5 menit (300 detik)
+## CCRouting (ORQLCI) Settings
 CCRouting.updateInterval = 300
-# State: Harus sama dengan total host (41) karena ini mendefinisikan batas max alamat tujuan (Destination Axis) di Q-Table.
-CCRouting.totalState = 41
-# Action: Harus sama dengan total host (41) karena mendefinisikan max alamat Relay (Action Axis).
-CCRouting.totalAction = 41
-
-# Parameter Tuning RL
 CCRouting.baseDiscountGamma = 0.6
 CCRouting.learningCoeff = 0.8
+
+# Epsilon-Greedy: exponential decay selama durasi trace
+# Awal trace: banyak explore karena Q-table kosong
+# Setelah ~1/3 durasi: mayoritas exploit
+CCRouting.epsilonStart = 1.0
+CCRouting.epsilonEnd = 0.05
+CCRouting.epsilonDecayType = exponential
+CCRouting.simulationTotalTime = 274883
 
 ## Event generators
 Events.nrof = 2
@@ -56,10 +55,8 @@ Events1.filePath = Haggle3-Infocom5.csv
 
 # Event 2: Message Generator
 Events2.class = MessageEventGenerator
-# Interval sesuai settingan kamu (~3 pesan per jam)
 Events2.interval = 1160, 1240
 Events2.size = 250k, 300k
-# Range host 0 - 40
 Events2.hosts = 0, 40
 Events2.prefix = M
 Events2.time = 0, 253283
@@ -71,12 +68,10 @@ MovementModel.worldSize = 100, 100
 ## Reports
 Report.nrofReports = 4
 Report.warmup = 1
-# Directory khusus untuk Haggle ORQLCI
-Report.reportDir = reports/data_skripsi/Haggle/1/
+Report.reportDir = hasil_skripsi/test_1/Haggle/
 Report.report1 = MessageStatsReport
 Report.report2 = PerformanceReport
 Report.report3 = MessageStatsTimeReport
-# Menambahkan report yang kamu pakai sebelumnya
 Report.report4 = ClosenessNodeTiapWaktuReport
 
 ## Optimization settings

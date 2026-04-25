@@ -1,12 +1,12 @@
 #
-# Configuration for Prophet - Reality Mining (MIT) Trace
-# FAIR COMPARISON dengan Bench_CCRouting_Reality.txt (ORQLCI Reality)
+# Configuration for Epidemic - Haggle (Infocom 5) Trace
+# FAIR COMPARISON dengan Bench_CCRouting_Haggle.txt (ORQLCI Haggle)
 #
-# Parameter yang IDENTIK dengan ORQLCI Reality:
-# - Scenario.endTime = 1698181
+# Parameter yang IDENTIK dengan ORQLCI Haggle:
+# - Scenario.endTime = 274883
 # - btInterface: transmitSpeed, transmitRange, scanInterval
 # - Group: movementModel, bufferSize, msgTtl
-# - Node: 250 node, nodeLocation
+# - Node: 41 node, nodeLocation
 # - Events: interval, size, hosts, prefix, time
 # - ExternalEventsQueue: filePath identik
 # - MovementModel: rngSeed, worldSize
@@ -15,10 +15,10 @@
 #
 
 ## Scenario settings
-Scenario.name = Prophet_Reality_Baseline
+Scenario.name = Epidemic_Haggle_Infocom5_Baseline
 Scenario.simulateConnections = false
 Scenario.updateInterval = 1
-Scenario.endTime = 1698181
+Scenario.endTime = 274883
 
 ## Interface settings
 btInterface.type = SimpleBroadcastInterface
@@ -30,45 +30,40 @@ btInterface.scanInterval = 120
 Scenario.nrofHostGroups = 1
 
 Group.movementModel = StationaryMovement
-Group.router = ProphetRouter
-Group.bufferSize = 100M
+Group.router = EpidemicRouter
+Group.bufferSize = 10M
 Group.nrofInterfaces = 1
 Group.interface1 = btInterface
-Group.msgTtl = 20160
+Group.msgTtl = 2880
 
-# --- NODE DISTRIBUTIONS (identik dengan ORQLCI Reality) ---
+# --- NODE DISTRIBUTIONS (identik dengan ORQLCI Haggle) ---
 Group1.groupID = P
-Group1.nrofHosts = 250
-Group1.nodeLocation = 1, 1
+Group1.nrofHosts = 41
+Group1.nodeLocation = 10, 10
 
-## ProphetRouter Settings (nilai default/standar literatur)
-ProphetRouter.secondsInTimeUnit = 30
-ProphetRouter.pInit = 0.75
-ProphetRouter.beta = 0.25
-ProphetRouter.gamma = 0.98
-
-## Event generators (IDENTIK dengan ORQLCI Reality)
+## Event generators (IDENTIK dengan ORQLCI Haggle)
 Events.nrof = 2
 
 Events1.class = ExternalEventsQueue
-Events1.filePath = RealityConnectionTraceFinal.txt
+Events1.filePath = Haggle3-Infocom5.csv
 
 Events2.class = MessageEventGenerator
-Events2.interval = 290, 310
-Events2.size = 500k
-Events2.hosts = 0, 249
+Events2.interval = 1160, 1240
+Events2.size = 250k, 300k
+Events2.hosts = 0, 40
 Events2.prefix = M
-Events2.time = 0, 1698181
+Events2.time = 0, 253283
 
-## Movement model settings (IDENTIK dengan ORQLCI Reality)
+## Movement model settings (IDENTIK dengan ORQLCI Haggle)
 MovementModel.rngSeed = 1
 MovementModel.worldSize = 100, 100
 
 ## Reports
 Report.nrofReports = 1
 Report.warmup = 1
-Report.reportDir = hasil_skripsi/test_1/Reality/
+Report.reportDir = hasil_skripsi/test_1/Haggle/
 Report.report1 = MessageStatsReport
 
 ## Optimization
+Optimization.cellSizeMult = 5
 Optimization.randomizeUpdateOrder = true

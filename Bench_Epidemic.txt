@@ -24,7 +24,7 @@ Scenario.nrofHostGroups = 6
 Group.movementModel = ShortestPathMapBasedMovement
 Group.router = EpidemicRouter
 # Node cache size: 50MB
-Group.bufferSize = 50M
+Group.bufferSize = 10M
 Group.waitTime = 0, 120
 Group.nrofInterfaces = 1
 Group.interface1 = btInterface
@@ -51,7 +51,7 @@ Group6.nrofHosts = 2
 Events.nrof = 1
 Events1.class = MessageEventGenerator
 # Message generation interval: 15s - 25s
-Events1.interval = 15, 25
+Events1.interval = 10, 20
 # Message size: 500kB - 1MB
 Events1.size = 500k, 1M
 # Range host: 0 sampai 199
@@ -71,9 +71,9 @@ MapBasedMovement.mapFile4 = data/shops.wkt
 
 ## Reports
 Report.nrofReports = 4
-Report.warmup = 0
+Report.warmup = 1000
 # Directory khusus untuk hasil revisi
-Report.reportDir = reports_skripsi/ShortestPathMapBasedMovement/Epidemic/
+Report.reportDir = testing/Epidemic_ShortestMap/1/custom/
 Report.report1 = MessageStatsReport
 Report.report2 = ContactTimesReport
 Report.report3 = PerformanceReport

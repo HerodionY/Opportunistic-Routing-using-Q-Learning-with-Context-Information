@@ -1,10 +1,21 @@
 #
-# Configuration for Epidemic (Reality Trace - Fair Comparison with CCRouting & Prophet)
-# Dataset: MIT Reality Mining | Nodes: 250 | Duration: ~19.6 hari
+# Configuration for Epidemic - Reality Mining (MIT) Trace
+# FAIR COMPARISON dengan Bench_CCRouting_Reality.txt (ORQLCI Reality)
+#
+# Parameter yang IDENTIK dengan ORQLCI Reality:
+# - Scenario.endTime = 1698181
+# - btInterface: transmitSpeed, transmitRange, scanInterval
+# - Group: movementModel, bufferSize, msgTtl
+# - Node: 250 node, nodeLocation
+# - Events: interval, size, hosts, prefix, time
+# - ExternalEventsQueue: filePath identik
+# - MovementModel: rngSeed, worldSize
+# - Report: warmup, reportDir
+# - Optimization: identik
 #
 
 ## Scenario settings
-Scenario.name = Reality_Epidemic_Baseline
+Scenario.name = Epidemic_Reality_Baseline
 Scenario.simulateConnections = false
 Scenario.updateInterval = 1
 Scenario.endTime = 1698181
@@ -18,7 +29,6 @@ btInterface.scanInterval = 120
 ## Group settings
 Scenario.nrofHostGroups = 1
 
-# WAJIB StationaryMovement untuk Reality trace
 Group.movementModel = StationaryMovement
 Group.router = EpidemicRouter
 Group.bufferSize = 100M
@@ -26,16 +36,12 @@ Group.nrofInterfaces = 1
 Group.interface1 = btInterface
 Group.msgTtl = 20160
 
-Group1.groupID = R
+# --- NODE DISTRIBUTIONS (identik dengan ORQLCI Reality) ---
+Group1.groupID = P
 Group1.nrofHosts = 250
 Group1.nodeLocation = 1, 1
 
-## EpidemicRouter
-# Epidemic tidak punya parameter tambahan khusus,
-# dia flood semua pesan ke semua node yang ditemui
-# → Ini yang menjadikannya upper-bound benchmark
-
-## Events (IDENTIK dengan CCRouting & Prophet)
+## Event generators (IDENTIK dengan ORQLCI Reality)
 Events.nrof = 2
 
 Events1.class = ExternalEventsQueue
@@ -48,16 +54,15 @@ Events2.hosts = 0, 249
 Events2.prefix = M
 Events2.time = 0, 1698181
 
-## Movement Model (IDENTIK dengan CCRouting & Prophet)
+## Movement model settings (IDENTIK dengan ORQLCI Reality)
 MovementModel.rngSeed = 1
 MovementModel.worldSize = 100, 100
 
-## Reports (IDENTIK dengan CCRouting & Prophet)
+## Reports
 Report.nrofReports = 1
 Report.warmup = 1
-Report.reportDir = reports_skripsi/reality/Epidemics/
+Report.reportDir = hasil_skripsi/test_1/Reality/
 Report.report1 = MessageStatsReport
 
-## Optimization (IDENTIK dengan CCRouting & Prophet)
-Optimization.cellSizeMult = 5
+## Optimization
 Optimization.randomizeUpdateOrder = true

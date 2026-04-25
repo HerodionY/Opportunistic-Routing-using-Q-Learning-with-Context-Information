@@ -5,7 +5,7 @@
 #
 # FAIRNESS NOTES (harus identik dengan Bench_Epidemic_Reality & Bench_Prophet_Reality):
 # - bufferSize: 100M (sama dengan baseline)
-# - msgTtl: 28800 menit (20 hari, cover seluruh simulasi — berbeda dari baseline 20160)
+# - msgTtl: 28800 menit (20 hari) — semua router identik, cover seluruh simulasi 19.6 hari
 # - Events2.size: 500k (sama dengan baseline)
 # - Events2.time: 0, 1698181 (sama dengan baseline, tidak ada cooldown asimetris)
 # - transmitRange, scanInterval, worldSize: identik

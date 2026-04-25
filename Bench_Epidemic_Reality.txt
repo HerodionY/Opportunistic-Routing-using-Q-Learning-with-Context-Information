@@ -34,7 +34,7 @@ Group.router = EpidemicRouter
 Group.bufferSize = 100M
 Group.nrofInterfaces = 1
 Group.interface1 = btInterface
-Group.msgTtl = 20160
+Group.msgTtl = 28800
 
 # --- NODE DISTRIBUTIONS (identik dengan ORQLCI Reality) ---
 Group1.groupID = P

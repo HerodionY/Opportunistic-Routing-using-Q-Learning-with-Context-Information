@@ -115,7 +115,9 @@ public abstract class QLearningRouter extends ActiveRouter {
 		lastQUpdateTimes.putIfAbsent(destAddr, new HashMap<>());
 
 		qvalues.get(destAddr).putIfAbsent(actionAddr, 0.0);
-		lastQUpdateTimes.get(destAddr).putIfAbsent(actionAddr, 0.0);
+		// Gunakan waktu sekarang sebagai lastUpdate agar entry baru tidak
+		// langsung di-decay besar saat ageQEntry pertama kali dipanggil
+		lastQUpdateTimes.get(destAddr).putIfAbsent(actionAddr, SimClock.getTime());
 	}
 
 	/**

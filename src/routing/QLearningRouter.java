@@ -323,13 +323,16 @@ public abstract class QLearningRouter extends ActiveRouter {
 	}
 
 	/**
-	 * Cek apakah ada Q-entry dengan nilai > 0 untuk destination tertentu.
-	 * Membaca langsung dari map tanpa memanggil getQV() untuk menghindari
-	 * side effect aging yang tidak perlu saat hanya ingin cek keberadaan.
+	 * Cek apakah ada Q-entry dengan nilai signifikan untuk destination tertentu.
+	 * Menggunakan threshold minimum agar Q-value yang sudah decay mendekati 0
+	 * di sparse network (seperti Reality Mining) tidak dianggap sebagai
+	 * "informasi yang valid" — router akan jatuh ke fallback yang lebih tepat.
 	 *
 	 * @param destAddr destination address
-	 * @return true jika ada minimal 1 action dengan Q > 0 (setelah aging)
+	 * @return true jika ada minimal 1 action dengan Q > threshold (setelah aging)
 	 */
+	private static final double Q_MEANINGFUL_THRESHOLD = 1e-4;
+
 	public boolean hasQEntry(int destAddr) {
 		if (!isValidAddress(destAddr)) {
 			return false;
@@ -340,12 +343,12 @@ public abstract class QLearningRouter extends ActiveRouter {
 			return false;
 		}
 
-		// Cek apakah ada action dengan Q > 0 setelah aging
+		// Cek apakah ada action dengan Q > threshold setelah aging
 		for (Map.Entry<Integer, Double> entry : actionMap.entrySet()) {
 			int actionAddr = entry.getKey();
 			// Age entry dulu sebelum cek nilainya
 			ageQEntry(destAddr, actionAddr, qAgeTimeUnit);
-			if (qvalues.get(destAddr).get(actionAddr) > 0.0) {
+			if (qvalues.get(destAddr).get(actionAddr) > Q_MEANINGFUL_THRESHOLD) {
 				return true;
 			}
 		}

@@ -35,15 +35,21 @@ public class CCRouting extends QLearningRouter {
     private static final String EPSILON_DECAY_TYPE_S = "epsilonDecayType";
     private static final String SIMULATION_TIME_S = "simulationTotalTime";
 
+    // Decay parameter keys (opsional, ada default)
+    private static final String GAMMA_P_S = "encounterDecayGamma";
+    private static final String OMEGA_Q_S = "qAgingOmega";
+
     // =========================================================================
     // ENCOUNTER PROBABILITY CONSTANTS (sesuai paper Section 3.1)
     // =========================================================================
 
     private static final double P_INIT = 0.75;  // Initialization constant Pinit
-    private static final double GAMMA_P = 0.98; // Decay factor η untuk encounter prob (Eq. 2)
-    private static final double OMEGA_Q = 0.98; // Aging constant ω untuk Q-value (Eq. 11)
     private static final double BETA = 0.25;    // Transitivity factor β (Eq. 3)
     private static final int SEC_IN_TU = 30;    // Time unit = 30s
+
+    // Decay constants — bisa di-override via config untuk sparse network
+    private static final double GAMMA_P_DEFAULT = 0.98; // Decay factor η untuk encounter prob
+    private static final double OMEGA_Q_DEFAULT = 0.98; // Aging constant ω untuk Q-value
 
     // =========================================================================
     // INSTANCE VARIABLES
@@ -63,6 +69,9 @@ public class CCRouting extends QLearningRouter {
     private String epsilonDecayType;
     private double currentEpsilon;
     private double simulationTotalTime;
+
+    // Encounter probability decay
+    private double gammaP; // η — decay factor untuk encounter prob (Eq. 2)
 
     // Update control
     private double updateInterval;
@@ -87,7 +96,16 @@ public class CCRouting extends QLearningRouter {
         // Set inherited parameters
         this.learningRate = learningCoeff;
         this.discountFactor = baseDiscountGamma;
-        this.agingOmega = OMEGA_Q;   // ω untuk Q-value aging (Eq. 11), bukan GAMMA_P
+
+        // Decay parameters — bisa di-override via config
+        this.gammaP = cc.contains(GAMMA_P_S)
+                ? cc.getDouble(GAMMA_P_S)
+                : GAMMA_P_DEFAULT;
+        double omegaQ = cc.contains(OMEGA_Q_S)
+                ? cc.getDouble(OMEGA_Q_S)
+                : OMEGA_Q_DEFAULT;
+
+        this.agingOmega = omegaQ;
         this.qAgeTimeUnit = SEC_IN_TU;
 
         // Epsilon-greedy parameters (dengan default values)
@@ -116,6 +134,7 @@ public class CCRouting extends QLearningRouter {
         this.baseDiscountGamma = r.baseDiscountGamma;
         this.learningCoeff = r.learningCoeff;
         this.updateInterval = r.updateInterval;
+        this.gammaP = r.gammaP;
 
         this.epsilonStart = r.epsilonStart;
         this.epsilonEnd = r.epsilonEnd;
@@ -179,7 +198,7 @@ public class CCRouting extends QLearningRouter {
             return;
         }
 
-        double mult = Math.pow(GAMMA_P, timeDiff);
+        double mult = Math.pow(gammaP, timeDiff);
 
         for (Map.Entry<DTNHost, Double> e : preds.entrySet()) {
             e.setValue(e.getValue() * mult);

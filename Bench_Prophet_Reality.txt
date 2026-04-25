@@ -38,7 +38,7 @@ Group.msgTtl = 20160
 
 # --- NODE DISTRIBUTIONS (identik dengan ORQLCI Reality) ---
 Group1.groupID = P
-Group1.nrofHosts = 250
+Group1.nrofHosts = 97
 Group1.nodeLocation = 1, 1
 
 ## ProphetRouter Settings (nilai default/standar literatur)
@@ -56,7 +56,7 @@ Events1.filePath = RealityConnectionTraceFinal.txt
 Events2.class = MessageEventGenerator
 Events2.interval = 290, 310
 Events2.size = 500k
-Events2.hosts = 0, 249
+Events2.hosts = 0, 96
 Events2.prefix = M
 Events2.time = 0, 1698181
 

@@ -1,10 +1,11 @@
 #
 # Configuration for ORQLCI - Reality Mining (MIT) Trace
-# Total Nodes: 250 | Duration: ~19.6 hari | Trace-Based
+# Total Nodes: 97 (node aktif yang benar-benar melakukan kontak di trace)
+# Duration: ~19.6 hari | Trace-Based
 #
 # FAIRNESS NOTES (harus identik dengan Bench_Epidemic_Reality & Bench_Prophet_Reality):
 # - bufferSize: 100M (sama dengan baseline)
-# - msgTtl: 20160 menit (sama dengan baseline)
+# - msgTtl: 28800 menit (20 hari, cover seluruh simulasi — berbeda dari baseline 20160)
 # - Events2.size: 500k (sama dengan baseline)
 # - Events2.time: 0, 1698181 (sama dengan baseline, tidak ada cooldown asimetris)
 # - transmitRange, scanInterval, worldSize: identik
@@ -31,12 +32,12 @@ Group.router = CCRouting
 Group.bufferSize = 100M
 Group.nrofInterfaces = 1
 Group.interface1 = btInterface
-# TTL 20160 menit (14 hari) — identik dengan baseline
-Group.msgTtl = 20160
+# TTL 28800 menit (20 hari) — cover seluruh durasi simulasi 19.6 hari
+Group.msgTtl = 28800
 
 # --- NODE DISTRIBUTIONS (Total 250 Partisipan MIT) ---
 Group1.groupID = P
-Group1.nrofHosts = 250
+Group1.nrofHosts = 97
 Group1.nodeLocation = 1, 1
 
 ## CCRouting (ORQLCI) Settings
@@ -52,6 +53,13 @@ CCRouting.epsilonEnd = 0.05
 CCRouting.epsilonDecayType = exponential
 CCRouting.simulationTotalTime = 1698181
 
+# Perlambat decay encounter prob dan Q-value untuk sparse network.
+# Default 0.98 per 30s = decay habis dalam ~1 hari tanpa kontak.
+# Reality Mining: kontak bisa tidak terjadi berhari-hari → pakai 0.9999
+# 0.9999^(86400/30) = 0.9999^2880 ≈ 0.75 per hari (jauh lebih lambat)
+CCRouting.encounterDecayGamma = 0.9999
+CCRouting.qAgingOmega = 0.9999
+
 ## Message creation parameters
 Events.nrof = 2
 
@@ -64,7 +72,7 @@ Events2.class = MessageEventGenerator
 Events2.interval = 290, 310
 # FAIR: size 500k identik dengan baseline Epidemic & Prophet Reality
 Events2.size = 500k
-Events2.hosts = 0, 249
+Events2.hosts = 0, 96
 Events2.prefix = M
 # FAIR: generate pesan sepanjang simulasi, identik dengan baseline
 Events2.time = 0, 1698181

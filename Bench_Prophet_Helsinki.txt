@@ -2,20 +2,27 @@
 # Configuration for Prophet - Helsinki (ShortestPathMapBased)
 # FAIR COMPARISON dengan Bench_CCRouting.txt (ORQLCI Helsinki)
 #
-# Parameter yang IDENTIK dengan ORQLCI Helsinki:
+# Parameter IDENTIK dengan ORQLCI Helsinki:
 # - Scenario.endTime, updateInterval
-# - btInterface: transmitSpeed, transmitRange
+# - btInterface: transmitSpeed, transmitRange, scanInterval
 # - Group: movementModel, bufferSize, waitTime, speed, msgTtl
 # - Node groups & distributions (6 groups, total 200 node)
 # - Events: interval, size, hosts, prefix
 # - MovementModel: rngSeed, worldSize, warmup
 # - MapBasedMovement: semua mapFile identik
-# - Report: warmup, reportDir
+# - Report: warmup, reportDir, nrofReports
 # - Optimization: identik
+#
+# Energy model:
+# - Variabel identik dengan CCRouting (initialEnergy, scanEnergy, transmitEnergy, receiveEnergy)
+# - Drain model sama: scan/120s + transmit/receive proportional waktu
+# - Initial energy random [800, 1000] per node (seed deterministik berbasis address)
+# - TANPA hard gate, TANPA soft zone — PRoPHET routing murni sampai energi habis
+# - Ketika energy = 0: node mati secara alami (tidak bisa routing/terima pesan baru)
 #
 
 ## Scenario settings
-Scenario.name = Prophet_Helsinki_Baseline
+Scenario.name = Prophet_Helsinki_EnergyAware
 Scenario.simulateConnections = true
 Scenario.updateInterval = 0.1
 Scenario.endTime = 43200
@@ -24,12 +31,13 @@ Scenario.endTime = 43200
 btInterface.type = SimpleBroadcastInterface
 btInterface.transmitSpeed = 250k
 btInterface.transmitRange = 25
+btInterface.scanInterval = 120
 
 ## Group settings
 Scenario.nrofHostGroups = 6
 
 Group.movementModel = ShortestPathMapBasedMovement
-Group.router = ProphetRouter
+Group.router = ProphetEnergyRouter
 Group.bufferSize = 50M
 Group.waitTime = 0, 120
 Group.nrofInterfaces = 1
@@ -75,11 +83,17 @@ Group6.speed = 7, 10
 Group6.bufferSize = 50M
 Group6.nrofHosts = 2
 
-## ProphetRouter Settings (nilai default/standar literatur)
+## PRoPHET Settings (nilai standar literatur — routing logic tidak berubah)
 ProphetRouter.secondsInTimeUnit = 30
-ProphetRouter.pInit = 0.75
 ProphetRouter.beta = 0.25
-ProphetRouter.gamma = 0.98
+
+## ProphetEnergyRouter Settings (identik dengan CCRouting)
+# Initial energy random [800, 1000] per node, seed dari address node
+ProphetEnergyRouter.initialEnergy = 1000
+ProphetEnergyRouter.scanEnergy = 0.1
+ProphetEnergyRouter.transmitEnergy = 0.5
+ProphetEnergyRouter.receiveEnergy = 0.1
+# Tidak ada hardEnergyThreshold — Prophet routing sampai mati alami di energy=0
 
 ## Message creation parameters (IDENTIK dengan ORQLCI Helsinki)
 Events.nrof = 1
@@ -100,11 +114,12 @@ MapBasedMovement.mapFile2 = data/main_roads.wkt
 MapBasedMovement.mapFile3 = data/pedestrian_paths.wkt
 MapBasedMovement.mapFile4 = data/shops.wkt
 
-## Reports
-Report.nrofReports = 1
+## Reports (identik dengan ORQLCI Helsinki)
+Report.nrofReports = 2
 Report.warmup = 1000
-Report.reportDir = hasil_skripsi/test_1/Helsinki/
+Report.reportDir = hasil_skripsi/test_1/Helsinki/energy/
 Report.report1 = MessageStatsReport
+Report.report2 = ContactTimesReport
 
 ## Optimization
 Optimization.cellSizeMult = 5

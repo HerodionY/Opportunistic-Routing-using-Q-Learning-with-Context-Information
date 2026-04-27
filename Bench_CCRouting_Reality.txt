@@ -45,13 +45,20 @@ CCRouting.updateInterval = 900
 CCRouting.baseDiscountGamma = 0.6
 CCRouting.learningCoeff = 0.8
 
-# Epsilon-Greedy: exponential decay selama durasi penuh simulasi
-# Awal: banyak explore karena Q-table kosong
-# Setelah ~1/3 durasi (~6 hari): mayoritas exploit
 CCRouting.epsilonStart = 1.0
 CCRouting.epsilonEnd = 0.05
 CCRouting.epsilonDecayType = exponential
 CCRouting.simulationTotalTime = 1698181
+
+# Energy Awareness (non-restorable)
+CCRouting.initialEnergy = 1000
+CCRouting.scanEnergy = 0.1
+CCRouting.transmitEnergy = 0.5
+CCRouting.receiveEnergy = 0.1
+CCRouting.hardEnergyThreshold = 0.04
+CCRouting.softEnergyThreshold = 0.05
+# Soft upper: >20% → EF = 1.0 (no penalty)
+CCRouting.softEnergyUpperBound = 0.20
 
 # Perlambat decay encounter prob dan Q-value untuk sparse network.
 # Default 0.98 per 30s = decay habis dalam ~1 hari tanpa kontak.

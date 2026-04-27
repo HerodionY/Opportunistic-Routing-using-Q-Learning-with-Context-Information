@@ -3,112 +3,89 @@ package routing;
 import core.*;
 import java.util.*;
 
-/**
- * Context-aware Q-Learning Router dengan Epsilon-Greedy.
- *
- * Implementasi ORQLCI (Opportunistic Routing using Q-Learning with Context
- * Information) dengan enhancement:
- *
- * 1. ε-greedy action selection (better exploration-exploitation balance)
- * 2. Dynamic Q-table (scalable, memory efficient)
- * 3. Greedy fallback via encounter probability saat destination belum di Q-table
- *
- * Sesuai paper:
- * - Section 3.1: Context Information (encounter probability, buffer factor)
- * - Section 3.2: Q-Learning Model
- * - Section 3.3: Learning & Forwarding Design
- */
 public class CCRouting extends QLearningRouter {
-
-    // =========================================================================
-    // CONFIGURATION
-    // =========================================================================
-
     private static final String CCROUTING_NS = "CCRouting";
     private static final String BASE_GAMMA_S = "baseDiscountGamma";
     private static final String LEARNING_COEFF_S = "learningCoeff";
     private static final String UPDATE_INTERVAL_S = "updateInterval";
-
-    // Epsilon-greedy parameters
     private static final String EPSILON_START_S = "epsilonStart";
     private static final String EPSILON_END_S = "epsilonEnd";
     private static final String EPSILON_DECAY_TYPE_S = "epsilonDecayType";
     private static final String SIMULATION_TIME_S = "simulationTotalTime";
-
-    // Decay parameter keys (opsional, ada default)
     private static final String GAMMA_P_S = "encounterDecayGamma";
     private static final String OMEGA_Q_S = "qAgingOmega";
-
-    // =========================================================================
-    // ENCOUNTER PROBABILITY CONSTANTS (sesuai paper Section 3.1)
-    // =========================================================================
-
-    private static final double P_INIT = 0.75;  // Initialization constant Pinit
-    private static final double BETA = 0.25;    // Transitivity factor β (Eq. 3)
-    private static final int SEC_IN_TU = 30;    // Time unit = 30s
-
-    // Decay constants — bisa di-override via config untuk sparse network
-    private static final double GAMMA_P_DEFAULT = 0.98; // Decay factor η untuk encounter prob
-    private static final double OMEGA_Q_DEFAULT = 0.98; // Aging constant ω untuk Q-value
-
-    // =========================================================================
-    // INSTANCE VARIABLES
-    // =========================================================================
-
-    // Encounter probability storage
+    private static final String INITIAL_ENERGY_S = "initialEnergy";
+    private static final String SCAN_ENERGY_S = "scanEnergy";
+    private static final String TRANSMIT_ENERGY_S = "transmitEnergy";
+    private static final String RECEIVE_ENERGY_S = "receiveEnergy";
+    private static final String HARD_THRESHOLD_S = "hardEnergyThreshold";
+    private static final String SOFT_THRESHOLD_S = "softEnergyThreshold";
+    private static final String SOFT_UPPER_S = "softEnergyUpperBound";
+    private static final double P_INIT = 0.75; // Initialization constant
+    private static final double BETA = 0.25; // Transitivity factor β
+    private static final int SEC_IN_TU = 30; // Time unit = 30s
+    private static final double GAMMA_P_DEFAULT = 0.98; // η untuk encounter prob
+    private static final double OMEGA_Q_DEFAULT = 0.98; // ω untuk Q-value aging
+    private static final double INITIAL_ENERGY_DEFAULT = 1000.0;
+    private static final double SCAN_ENERGY_DEFAULT = 0.1;
+    private static final double TRANSMIT_ENERGY_DEFAULT = 0.5; // per second
+    private static final double RECEIVE_ENERGY_DEFAULT = 0.1; // per second
+    private static final double HARD_THRESHOLD_DEFAULT = 0.04; // 4%
+    private static final double SOFT_THRESHOLD_DEFAULT = 0.05; // 5%
+    private static final double SOFT_UPPER_DEFAULT = 0.20; // 20%
+    private static final double DIRECTION_THRESHOLD_DEGREES = 45.0;
+    private static final double DIRECTION_THRESHOLD_COS = Math.cos(Math.toRadians(DIRECTION_THRESHOLD_DEGREES));
     private Map<DTNHost, Double> preds;
     private double lastAgeUpdate = 0.0;
 
-    // Learning parameters
     private double baseDiscountGamma;
     private double learningCoeff;
+    private double gammaP; // η — decay factor untuk encounter prob
 
-    // Epsilon-greedy
     private double epsilonStart;
     private double epsilonEnd;
     private String epsilonDecayType;
     private double currentEpsilon;
     private double simulationTotalTime;
 
-    // Encounter probability decay
-    private double gammaP; // η — decay factor untuk encounter prob (Eq. 2)
-
-    // Update control
     private double updateInterval;
     private double lastUpdateTime = 0.0;
 
-    // Current connections
     private List<Connection> candidateReceiver;
 
-    // =========================================================================
-    // CONSTRUCTOR
-    // =========================================================================
+    private double maxEnergy;
+    private double currentEnergy;
+    private double scanEnergy; // per scan
+    private double transmitEnergy; // per second per connection
+    private double receiveEnergy; // per second per connection
+    private double hardEnergyThreshold; // default 4%
+    private double softEnergyThreshold; // default 5%
+    private double softEnergyUpper; // default 20%
+    private double initialEnergyConfig;
+    private double lastScanEnergyUpdate = 0.0;
+    private double lastEnergyUpdate = 0.0;
+    private double cachedScanInterval = 120.0;
+    private Random rng = new Random(42L); // Fallback seed; di-overwrite di init()
 
     public CCRouting(Settings s) {
         super(s);
         Settings cc = new Settings(CCROUTING_NS);
 
-        // Learning parameters
         this.baseDiscountGamma = cc.getDouble(BASE_GAMMA_S);
         this.learningCoeff = cc.getDouble(LEARNING_COEFF_S);
         this.updateInterval = cc.getDouble(UPDATE_INTERVAL_S);
-
-        // Set inherited parameters
         this.learningRate = learningCoeff;
         this.discountFactor = baseDiscountGamma;
-
-        // Decay parameters — bisa di-override via config
         this.gammaP = cc.contains(GAMMA_P_S)
                 ? cc.getDouble(GAMMA_P_S)
                 : GAMMA_P_DEFAULT;
+
         double omegaQ = cc.contains(OMEGA_Q_S)
                 ? cc.getDouble(OMEGA_Q_S)
                 : OMEGA_Q_DEFAULT;
 
         this.agingOmega = omegaQ;
         this.qAgeTimeUnit = SEC_IN_TU;
-
-        // Epsilon-greedy parameters (dengan default values)
         this.epsilonStart = cc.contains(EPSILON_START_S)
                 ? cc.getDouble(EPSILON_START_S)
                 : 1.0;
@@ -124,6 +101,33 @@ public class CCRouting extends QLearningRouter {
 
         this.currentEpsilon = this.epsilonStart;
 
+        this.initialEnergyConfig = cc.contains(INITIAL_ENERGY_S)
+                ? cc.getDouble(INITIAL_ENERGY_S)
+                : INITIAL_ENERGY_DEFAULT;
+        this.scanEnergy = cc.contains(SCAN_ENERGY_S)
+                ? cc.getDouble(SCAN_ENERGY_S)
+                : SCAN_ENERGY_DEFAULT;
+        this.transmitEnergy = cc.contains(TRANSMIT_ENERGY_S)
+                ? cc.getDouble(TRANSMIT_ENERGY_S)
+                : TRANSMIT_ENERGY_DEFAULT;
+        this.receiveEnergy = cc.contains(RECEIVE_ENERGY_S)
+                ? cc.getDouble(RECEIVE_ENERGY_S)
+                : RECEIVE_ENERGY_DEFAULT;
+        this.hardEnergyThreshold = cc.contains(HARD_THRESHOLD_S)
+                ? cc.getDouble(HARD_THRESHOLD_S)
+                : HARD_THRESHOLD_DEFAULT;
+        this.softEnergyThreshold = cc.contains(SOFT_THRESHOLD_S)
+                ? cc.getDouble(SOFT_THRESHOLD_S)
+                : SOFT_THRESHOLD_DEFAULT;
+        this.softEnergyUpper = cc.contains(SOFT_UPPER_S)
+                ? cc.getDouble(SOFT_UPPER_S)
+                : SOFT_UPPER_DEFAULT;
+
+        this.maxEnergy = initialEnergyConfig;
+        this.currentEnergy = initialEnergyConfig;
+
+        this.cachedScanInterval = readScanInterval();
+
         initPreds();
         initLocal();
     }
@@ -131,19 +135,51 @@ public class CCRouting extends QLearningRouter {
     protected CCRouting(CCRouting r) {
         super(r);
 
+        // Copy learning parameters
         this.baseDiscountGamma = r.baseDiscountGamma;
         this.learningCoeff = r.learningCoeff;
         this.updateInterval = r.updateInterval;
         this.gammaP = r.gammaP;
 
+        // Copy epsilon parameters
         this.epsilonStart = r.epsilonStart;
         this.epsilonEnd = r.epsilonEnd;
         this.epsilonDecayType = r.epsilonDecayType;
         this.simulationTotalTime = r.simulationTotalTime;
         this.currentEpsilon = r.epsilonStart;
 
+        // Copy energy parameters
+        this.initialEnergyConfig = r.initialEnergyConfig;
+        this.scanEnergy = r.scanEnergy;
+        this.transmitEnergy = r.transmitEnergy;
+        this.receiveEnergy = r.receiveEnergy;
+        this.hardEnergyThreshold = r.hardEnergyThreshold;
+        this.softEnergyThreshold = r.softEnergyThreshold;
+        this.softEnergyUpper = r.softEnergyUpper;
+        this.cachedScanInterval = r.cachedScanInterval;
+
+        // Energy initialization DITUNDA sampai init() dipanggil
+        // (karena host belum tersedia di copy constructor)
+        this.maxEnergy = -1.0; // Sentinel value
+        this.currentEnergy = -1.0;
+
+        this.lastScanEnergyUpdate = 0.0;
+        this.lastEnergyUpdate = 0.0;
+
         initPreds();
         initLocal();
+    }
+
+    private double readScanInterval() {
+        try {
+            Settings iface = new Settings("btInterface");
+            if (iface.contains("scanInterval")) {
+                return iface.getDouble("scanInterval");
+            }
+        } catch (Exception e) {
+            // Ignore, use default
+        }
+        return 120.0;
     }
 
     private void initPreds() {
@@ -155,6 +191,185 @@ public class CCRouting extends QLearningRouter {
         this.candidateReceiver = new ArrayList<>();
     }
 
+    /**
+     * OVERRIDE init() untuk inisialisasi energy SETELAH host tersedia.
+     * 
+     * Energy capacity: random [initialEnergy-200, initialEnergy]
+     * Seed: deterministik berdasarkan address node untuk reproducibility.
+     */
+    @Override
+    public void init(DTNHost host, List<MessageListener> mListeners) {
+        super.init(host, mListeners);
+
+        // Inisialisasi energy jika belum di-set
+        if (maxEnergy < 0) {
+            double minEnergy = Math.max(0, initialEnergyConfig - 200.0);
+
+            // Seed dari address untuk deterministic per-node
+            Random nodeRng = new Random(host.getAddress() + 12345L);
+
+            this.maxEnergy = minEnergy + nodeRng.nextDouble()
+                    * (initialEnergyConfig - minEnergy);
+            this.currentEnergy = this.maxEnergy;
+        }
+
+        // Inisialisasi RNG deterministik berbasis address node.
+        // Setiap node mendapat seed unik → exploration reproducible per-node.
+        this.rng = new Random(host.getAddress() + 99999L);
+    }
+
+    // =========================================================================
+    // ENERGY AWARENESS
+    // =========================================================================
+
+    /**
+     * Hitung Energy Factor (EF) untuk node ini.
+     *
+     * EF digunakan sebagai pengganda pada discount factor:
+     * γd(s,x) = γ × BFx × EFx (Extended Eq. 7)
+     *
+     * Zona:
+     * - ratio > softEnergyUpper (default 20%) → EF = 1.0 (no penalty)
+     * - softEnergyThreshold < ratio ≤ softEnergyUpper → EF linear [0.0, 1.0]
+     * - ratio ≤ softEnergyThreshold (default 5%) → EF = 0.0 (max penalty)
+     *
+     * @return EF ∈ [0.0, 1.0]
+     */
+    public double getEnergyFactor() {
+        if (maxEnergy <= 0) {
+            throw new IllegalStateException("maxEnergy must be > 0");
+        }
+
+        double ratio = currentEnergy / maxEnergy;
+
+        if (ratio > softEnergyUpper) {
+            return 1.0;
+        } else if (ratio <= softEnergyThreshold) {
+            return 0.0;
+        } else {
+            // Linear interpolation dalam soft zone
+            return (ratio - softEnergyThreshold)
+                    / (softEnergyUpper - softEnergyThreshold);
+        }
+    }
+
+    /**
+     * Cek apakah node dalam hard gate (energy ≤ hardEnergyThreshold).
+     * Node dalam hard gate menolak receive pesan baru.
+     *
+     * @return true jika dalam hard gate zone
+     */
+    public boolean isInHardGate() {
+        if (maxEnergy <= 0)
+            return false;
+        return (currentEnergy / maxEnergy) <= hardEnergyThreshold;
+    }
+
+    /**
+     * Get Energy Factor dari node lain (untuk discount factor calculation).
+     *
+     * @param host target host
+     * @return EF dari host tersebut, atau 1.0 jika bukan CCRouting
+     */
+    private double getEnergyFactorOf(DTNHost host) {
+        MessageRouter r = host.getRouter();
+        if (!(r instanceof CCRouting)) {
+            return 1.0;
+        }
+        CCRouting ccRouter = (CCRouting) r;
+        // Guard: jika router target belum melewati init() (maxEnergy masih sentinel),
+        // kembalikan nilai netral 1.0 agar tidak melempar IllegalStateException.
+        return ccRouter.getMaxEnergy() > 0 ? ccRouter.getEnergyFactor() : 1.0;
+    }
+
+    /**
+     * Kurangi energy untuk scanning activity.
+     * Dipanggil tiap update(), tapi hanya consume setiap scanInterval.
+     */
+    private void consumeScanEnergy() {
+        // Guard: cachedScanInterval = 0 akan menyebabkan infinite loop.
+        // Bisa terjadi jika key 'scanInterval' tidak ada di config interface.
+        if (cachedScanInterval <= 0) {
+            return;
+        }
+
+        double now = SimClock.getTime();
+
+        // Hitung berapa scan periods yang sudah lewat
+        while (now >= lastScanEnergyUpdate + cachedScanInterval) {
+            currentEnergy = Math.max(0.0, currentEnergy - scanEnergy);
+            lastScanEnergyUpdate += cachedScanInterval; // INCREMENT!
+        }
+    }
+
+    /**
+     * Kurangi energy untuk transmitting/receiving.
+     * 
+     * Model: Energy proportional dengan connections aktif.
+     * - Transmit: transmitEnergy × timeDiff × numTransmitting
+     * - Receive: receiveEnergy × timeDiff × numReceiving
+     * 
+     * FIXED: Gunakan actual connection state, bukan sendingConnections.
+     */
+    private void consumeTransferEnergy() {
+        double now = SimClock.getTime();
+        double timeDiff = now - lastEnergyUpdate;
+
+        if (timeDiff <= 0) {
+            lastEnergyUpdate = now;
+            return;
+        }
+
+        // Count active transmit/receive connections
+        int numTransmitting = 0;
+        int numReceiving = 0;
+
+        for (Connection con : getConnections()) {
+            if (!con.isUp()) {
+                continue;
+            }
+
+            Message transferringMsg = con.getMessage();
+            if (transferringMsg == null) {
+                continue;
+            }
+
+            // Check apakah THIS node adalah sender atau receiver
+            if (con.isInitiator(getHost())) {
+                numTransmitting++;
+            } else {
+                numReceiving++;
+            }
+        }
+
+        // Consume energy proporsional dengan connections & time
+        if (numTransmitting > 0) {
+            double energyUsed = transmitEnergy * timeDiff * numTransmitting;
+            currentEnergy = Math.max(0.0, currentEnergy - energyUsed);
+        }
+
+        if (numReceiving > 0) {
+            double energyUsed = receiveEnergy * timeDiff * numReceiving;
+            currentEnergy = Math.max(0.0, currentEnergy - energyUsed);
+        }
+
+        lastEnergyUpdate = now;
+    }
+
+    /**
+     * OVERRIDE checkReceiving untuk implement hard gate.
+     * 
+     * Node dalam hard gate (energy ≤ 4%) menolak receive pesan baru.
+     * Node masih bisa forward pesan yang sudah ada di buffer.
+     */
+    @Override
+    protected int checkReceiving(Message m) {
+        if (isInHardGate()) {
+            return DENIED_UNSPECIFIED; // Reject karena low energy
+        }
+        return super.checkReceiving(m);
+    }
+
     // =========================================================================
     // EPSILON-GREEDY DECAY
     // =========================================================================
@@ -162,18 +377,19 @@ public class CCRouting extends QLearningRouter {
     /**
      * Hitung epsilon saat ini berdasarkan simulation progress.
      * 
-     * Linear decay: ε(t) = ε_end + (ε_start - ε_end) × (1 - progress)
-     * Exponential decay: ε(t) = ε_end + (ε_start - ε_end) × exp(-3×progress)
+     * Linear: ε(t) = ε_end + (ε_start - ε_end) × (1 - progress)
+     * Exponential: ε(t) = ε_end + (ε_start - ε_end) × exp(-3×progress)
      * 
-     * @return current epsilon value
+     * @return current epsilon ∈ [ε_end, ε_start]
      */
     private double calculateCurrentEpsilon() {
         double now = SimClock.getTime();
         double progress = now / simulationTotalTime;
-        progress = Math.min(1.0, Math.max(0.0, progress)); // Clamp [0,1]
+        progress = Math.min(1.0, Math.max(0.0, progress));
 
         if ("exponential".equalsIgnoreCase(epsilonDecayType)) {
-            return epsilonEnd + (epsilonStart - epsilonEnd) * Math.exp(-3.0 * progress);
+            return epsilonEnd + (epsilonStart - epsilonEnd)
+                    * Math.exp(-3.0 * progress);
         } else {
             // Linear decay (default)
             return epsilonEnd + (epsilonStart - epsilonEnd) * (1.0 - progress);
@@ -185,10 +401,10 @@ public class CCRouting extends QLearningRouter {
     // =========================================================================
 
     /**
-     * Age semua encounter probabilities berdasarkan waktu berlalu.
+     * Age semua encounter probabilities.
      * 
      * Eq. 2 (paper): P(a,b) = P(a,b)_old × η^t
-     * di mana η = GAMMA_P, t = timeDiff / SEC_IN_TU
+     * di mana η = gammaP, t = timeDiff / SEC_IN_TU
      */
     private void ageDeliveryPreds() {
         double now = SimClock.getTime();
@@ -208,11 +424,9 @@ public class CCRouting extends QLearningRouter {
     }
 
     /**
-     * Update encounter probability saat bertemu node lain.
+     * Update encounter probability saat bertemu node.
      * 
      * Eq. 1 (paper): P(a,b) = P(a,b)_old + (1 - P(a,b)_old) × P_init
-     * 
-     * @param other node yang bertemu
      */
     private void updateEncounterProb(DTNHost other) {
         ageDeliveryPreds();
@@ -226,12 +440,6 @@ public class CCRouting extends QLearningRouter {
      * 
      * Eq. 3 (paper):
      * P(a,c) = P(a,c)_old + (1 - P(a,c)_old) × P(a,b) × P(b,c) × β
-     * 
-     * Jika A sering bertemu B dan B sering bertemu C,
-     * maka A kemungkinan juga bertemu C.
-     * 
-     * @param nodeB   node perantara
-     * @param routerB router dari nodeB
      */
     private void updateTransitivity(DTNHost nodeB, CCRouting routerB) {
         ageDeliveryPreds();
@@ -239,30 +447,25 @@ public class CCRouting extends QLearningRouter {
 
         double pAB = preds.getOrDefault(nodeB, 0.0);
         if (pAB == 0.0) {
-            return; // Tidak ada koneksi A-B
+            return;
         }
 
-        // Iterate encounter probs milik B
         for (Map.Entry<DTNHost, Double> entry : routerB.preds.entrySet()) {
             DTNHost nodeC = entry.getKey();
 
             if (nodeC.equals(getHost())) {
-                continue; // Skip self
+                continue;
             }
 
             double pBC = entry.getValue();
             double pACold = preds.getOrDefault(nodeC, 0.0);
 
-            // Eq. 3: Transitivity update
             preds.put(nodeC, pACold + (1.0 - pACold) * pAB * pBC * BETA);
         }
     }
 
     /**
      * Get encounter probability untuk host tertentu.
-     * 
-     * @param host target host
-     * @return probability [0,1]
      */
     public double getPredFor(DTNHost host) {
         ageDeliveryPreds();
@@ -270,10 +473,8 @@ public class CCRouting extends QLearningRouter {
     }
 
     /**
-     * Get semua encounter probabilities sebagai map <address, prob>.
+     * Get encounter probabilities sebagai map <address, prob>.
      * Digunakan untuk Eq. 8 (neighbor max Q').
-     * 
-     * @return map of node address to encounter probability
      */
     public Map<Integer, Double> getEncounterProbMap() {
         ageDeliveryPreds();
@@ -291,25 +492,18 @@ public class CCRouting extends QLearningRouter {
     // =========================================================================
 
     /**
-     * Hitung buffer factor untuk node tertentu.
+     * Hitung buffer factor untuk node.
      * 
      * Eq. 4 (paper): BF = 1 - (Σ Nm × Bm) / C_init
      * 
-     * di mana:
-     * - Nm = jumlah message m (dalam ONE simulator: jumlah distinct messages)
-     * - Bm = ukuran message m
-     * - C_init = max buffer capacity
-     * 
-     * @param host target host
-     * @return buffer factor [0,1], 1 = buffer kosong, 0 = buffer penuh
+     * @return BF ∈ [0, 1], 1 = empty, 0 = full
      */
     private double getBufferFactor(DTNHost host) {
         MessageRouter router = host.getRouter();
         int cTotal = router.getBufferSize();
 
-        // Edge cases
         if (cTotal <= 0 || cTotal == Integer.MAX_VALUE) {
-            return 1.0; // Assume unlimited buffer
+            return 1.0;
         }
 
         long occupied = 0;
@@ -317,35 +511,56 @@ public class CCRouting extends QLearningRouter {
             occupied += m.getSize();
         }
 
-        // BF = 1 - (occupied / total)
         double bf = 1.0 - (double) occupied / cTotal;
-
-        // Clamp to [0,1]
         return Math.max(0.0, Math.min(1.0, bf));
     }
 
     // =========================================================================
-    // GREEDY FALLBACK VIA ENCOUNTER PROBABILITY
+    // DIRECTIONAL PREDICTION (sesuai paper Algorithm 2)
     // =========================================================================
 
     /**
-     * Pilih relay terbaik berdasarkan encounter probability tertinggi ke destination.
-     * Digunakan sebagai fallback saat destination belum ada di Q-table.
-     *
-     * Relay dengan P(relay, dest) tertinggi dipilih — sesuai prinsip greedy
-     * yang sama dengan Prophet, tapi hanya sebagai fallback awal sebelum
-     * Q-table punya cukup data.
-     *
-     * @param relay       relay node yang sedang dipertimbangkan
-     * @param destination destination node
-     * @return encounter probability relay ke destination, atau 0.0 jika tidak diketahui
+     * Hitung cosine similarity antara arah gerak relay dan arah ke destination.
+     * 
+     * Digunakan saat destination TIDAK ada di Q-table (fallback).
+     * Sesuai paper Algorithm 2.
+     * 
+     * cos(θ) = (V_move · V_target) / (||V_move|| × ||V_target||)
+     * 
+     * @return cosine ∈ [-1, 1], atau -1 jika data tidak lengkap
      */
-    private double getEncounterProbToward(DTNHost relay, DTNHost destination) {
-        MessageRouter r = relay.getRouter();
-        if (!(r instanceof CCRouting)) {
-            return 0.0;
+    private double getDirectionalCosine(DTNHost relay, DTNHost destination) {
+        Coord relayLocation = relay.getLocation();
+        Coord relayWaypoint = relay.getDestination();
+        Coord destinationLocation = destination.getLocation();
+
+        if (relayLocation == null || relayWaypoint == null
+                || destinationLocation == null) {
+            return -1.0;
         }
-        return ((CCRouting) r).getPredFor(destination);
+
+        // Vector arah gerak relay
+        double moveX = relayWaypoint.getX() - relayLocation.getX();
+        double moveY = relayWaypoint.getY() - relayLocation.getY();
+
+        // Vector arah ke destination
+        double targetX = destinationLocation.getX() - relayLocation.getX();
+        double targetY = destinationLocation.getY() - relayLocation.getY();
+
+        // Magnitudes
+        double moveNorm = Math.hypot(moveX, moveY);
+        if (moveNorm == 0.0) {
+            return -1.0; // Relay tidak bergerak
+        }
+
+        double targetNorm = Math.hypot(targetX, targetY);
+        if (targetNorm == 0.0) {
+            return 1.0; // Relay sudah di lokasi destination
+        }
+
+        // Cosine similarity
+        return ((moveX * targetX) + (moveY * targetY))
+                / (moveNorm * targetNorm);
     }
 
     // =========================================================================
@@ -355,58 +570,51 @@ public class CCRouting extends QLearningRouter {
     /**
      * Update Q-table saat bertemu node lain.
      * 
-     * Implementasi Algorithm 1 dari paper:
-     * 1. Age Q-table sebelum update (Eq. 11)
-     * 2. Get context info (buffer factor, encounter probs)
-     * 3. Update Q-values untuk SEMUA destinations yang diketahui:
-     *    - Destinations dari messages yang sedang dibawa
-     *    - Destinations yang sudah ada di Q-table (learned knowledge)
+     * Implementasi Algorithm 1 dari paper dengan energy awareness.
      * 
-     * Sesuai paper Section 3.3: node sn update Q_rn(sn,rn) via Eq.10
-     * dan Q_dn(sn,rn) via Eq.9 untuk semua dn yang diketahui.
+     * Extended Eq. 7:
+     * γd(s,x) = γ × BFx × EFx
      * 
-     * @param other       node yang bertemu
-     * @param otherRouter router dari node tersebut
+     * EFx memberikan gradual penalty untuk relay dengan low energy.
      */
     private void updateQTableOnContact(DTNHost other, CCRouting otherRouter) {
-        // Age Q-table milik THIS node dulu (Eq. 11)
+        // Age Q-table milik node ini saja.
+        // Sesuai paper Algorithm 1: setiap node hanya mengupdate state-nya sendiri.
+        // otherRouter akan meng-age Q-tablenya sendiri di update() miliknya.
         ageQTable(SEC_IN_TU);
-
-        // Age Q-table milik otherRouter juga — wajib sebelum Eq. 8 dibaca
-        // agar max_y[Qd(x,y)×P(x,y)] menggunakan nilai yang sudah ter-age
-        otherRouter.ageQTable(SEC_IN_TU);
 
         int otherAddr = other.getAddress();
 
         // Context information
         double bfOther = getBufferFactor(other);
-        double dynamicDiscount = baseDiscountGamma * bfOther; // Eq. 7: γd(s,x) = γ × BFx
+        double efOther = getEnergyFactorOf(other);
+
+        // Extended Eq. 7: γd(s,x) = γ × BFx × EFx
+        double dynamicDiscount = baseDiscountGamma * bfOther * efOther;
 
         Map<Integer, Double> otherProbMap = otherRouter.getEncounterProbMap();
 
-        // Snapshot destinations SEBELUM loop — mencegah modifikasi qvalues.keySet()
-        // saat iterasi (ensureQEntry di dalam updateQRelay bisa tambah key baru)
+        // Collect relevant destinations
         Set<Integer> relevantDests = new HashSet<>();
         for (Message m : getMessageCollection()) {
             relevantDests.add(m.getTo().getAddress());
         }
-        // Tambahkan destinations dari Q-table (learned knowledge, sesuai Algorithm 1)
+        // Juga update untuk destinations yang sudah ada di Q-table
         relevantDests.addAll(qvalues.keySet());
 
-        // Update Q untuk setiap destination yang diketahui
+        // Update Q untuk setiap destination
         for (int destAddr : relevantDests) {
             if (destAddr == getHost().getAddress()) {
-                continue; // Skip self as destination
+                continue;
             }
 
             if (otherAddr == destAddr) {
-                // Case 1: Other IS the destination → Eq. 10
-                // Qd(s,x) ← (1-α)×Qd(s,x) + α×Rd(s,x), Rd=1
+                // Case 1: Other IS destination → Eq. 10
                 updateQDirect(destAddr, otherAddr);
             } else {
                 // Case 2: Other is relay → Eq. 9
-                // Qd(s,x) ← (1-α)×Qd(s,x) + α×γ×BFx×max_y[Qd(x,y)×P(x,y)]
-                double neighborMaxQP = otherRouter.getNeighborMaxQPrime(destAddr, otherProbMap);
+                double neighborMaxQP = otherRouter.getNeighborMaxQPrime(
+                        destAddr, otherProbMap);
                 updateQRelay(destAddr, otherAddr, dynamicDiscount, neighborMaxQP);
             }
         }
@@ -422,7 +630,6 @@ public class CCRouting extends QLearningRouter {
 
         DTNHost other = con.getOtherNode(getHost());
 
-        // Pastikan router adalah CCRouting
         if (!(other.getRouter() instanceof CCRouting)) {
             return;
         }
@@ -432,7 +639,6 @@ public class CCRouting extends QLearningRouter {
         if (con.isUp()) {
             // Connection UP
 
-            // Add ke candidate receivers
             if (!candidateReceiver.contains(con)) {
                 candidateReceiver.add(con);
             }
@@ -460,19 +666,23 @@ public class CCRouting extends QLearningRouter {
     public void update() {
         super.update();
 
+        // Consume energy
+        consumeScanEnergy();
+        consumeTransferEnergy();
+
         if (isTransferring() || !canStartTransfer()) {
             return;
         }
 
-        // Update epsilon berdasarkan simulation progress
+        // Update epsilon
         this.currentEpsilon = calculateCurrentEpsilon();
 
-        // Prioritas 1: Forward messages ke destination langsung
+        // Priority 1: Direct delivery
         if (exchangeDeliverableMessages() != null) {
             return;
         }
 
-        // Prioritas 2: Forward via relay nodes
+        // Priority 2: Relay forwarding
         tryOtherMessage();
 
         // Periodic Q-table aging
@@ -484,20 +694,20 @@ public class CCRouting extends QLearningRouter {
     }
 
     /**
-     * Coba forward messages via relay nodes.
-     *
-     * Implementasi Algorithm 2 dengan ε-greedy action selection:
-     *
-     * CASE 1: Other IS destination → langsung forward (prioritas tertinggi)
-     *
+     * Forward messages via relay nodes.
+     * 
+     * Implementasi Algorithm 2 dengan ε-greedy dan energy awareness:
+     * 
+     * CASE 0: Skip relay dalam hard gate (akan reject receive)
+     * 
+     * CASE 1: Other IS destination → always forward (highest priority)
+     * 
      * CASE 2: Destination ada di Q-table → ε-greedy
-     * - Keputusan explore/exploit dibuat SEKALI per connection
-     * - Exploration (prob ε): forward ke relay ini, score acak [0,1]
-     * - Exploitation (prob 1-ε): forward hanya jika relay ini adalah argmax Q
-     *
-     * CASE 3: Destination BELUM ada di Q-table → greedy fallback
-     * - Pilih relay dengan encounter probability tertinggi ke destination
-     * - Sesuai arahan dosen: ganti directional prediction dengan greedy
+     * - Exploration (prob ε): try forward, random score
+     * - Exploitation (prob 1-ε): forward only if other = argmax Q
+     * 
+     * CASE 3: Destination TIDAK di Q-table → directional prediction
+     * (sesuai paper Algorithm 2, bukan encounter probability!)
      */
     private void tryOtherMessage() {
         Collection<Message> msgCollection = getMessageCollection();
@@ -526,9 +736,10 @@ public class CCRouting extends QLearningRouter {
                 continue;
             }
 
-            // Keputusan explore/exploit dibuat SEKALI per connection,
-            // berlaku untuk semua messages ke connection ini.
-            boolean explore = (Math.random() < this.currentEpsilon);
+            // CASE 0: Skip relay dalam hard gate
+            if (otherRouter.isInHardGate()) {
+                continue;
+            }
 
             for (Message m : msgCollection) {
                 if (otherRouter.hasMessage(m.getId())) {
@@ -542,19 +753,24 @@ public class CCRouting extends QLearningRouter {
                 boolean shouldForward = false;
                 double candidateScore = Double.NEGATIVE_INFINITY;
 
-                // CASE 1: Other IS destination → always forward
+                // CASE 1: Direct delivery
                 if (m.getTo() == other) {
                     shouldForward = true;
                     candidateScore = Double.POSITIVE_INFINITY;
                 }
-                // CASE 2: Destination ada di Q-table → ε-greedy
+                // CASE 2: Q-table exists → ε-greedy
                 else if (hasQEntry(destAddr)) {
+                    // Exploration decision PER MESSAGE (FIXED!)
+                    // Gunakan rng deterministik (di-seed dari host address) agar
+                    // hasil simulasi reproducible antar run dengan seed yang sama.
+                    boolean explore = (rng.nextDouble() < this.currentEpsilon);
+
                     if (explore) {
-                        // EXPLORATION: score acak [0,1], bersaing fair
+                        // Exploration
                         shouldForward = true;
-                        candidateScore = Math.random();
+                        candidateScore = 1000.0 + rng.nextDouble();
                     } else {
-                        // EXPLOITATION: argmax Q
+                        // Exploitation
                         int bestAction = getBestAction(destAddr);
                         if (other.getAddress() == bestAction) {
                             shouldForward = true;
@@ -562,15 +778,18 @@ public class CCRouting extends QLearningRouter {
                         }
                     }
                 }
-                // CASE 3: Destination belum di Q-table → greedy via encounter prob
+                // CASE 3: No Q-entry → directional prediction (sesuai paper!)
                 else {
-                    double encProb = getEncounterProbToward(other, m.getTo());
-                    if (encProb > 0.0) {
+                    double directionalCosine = getDirectionalCosine(
+                            other, m.getTo());
+
+                    if (directionalCosine >= DIRECTION_THRESHOLD_COS) {
                         shouldForward = true;
-                        candidateScore = encProb;
+                        candidateScore = directionalCosine;
                     }
                 }
 
+                // Track best candidate
                 if (shouldForward && candidateScore > bestScore) {
                     bestScore = candidateScore;
                     bestCandidate = new Tuple<>(m, con);
@@ -578,6 +797,7 @@ public class CCRouting extends QLearningRouter {
             }
         }
 
+        // Forward best message
         if (bestCandidate != null) {
             startTransfer(bestCandidate.getKey(), bestCandidate.getValue());
         }
@@ -604,9 +824,25 @@ public class CCRouting extends QLearningRouter {
         return preds.size();
     }
 
+    public double getCurrentEnergy() {
+        return currentEnergy;
+    }
+
+    public double getMaxEnergy() {
+        return maxEnergy;
+    }
+
+    public double getEnergyRatio() {
+        return maxEnergy > 0 ? currentEnergy / maxEnergy : 1.0;
+    }
+
     @Override
     public String toString() {
-        return super.toString() + String.format(" [ε=%.3f, preds=%d, %s]",
-                currentEpsilon, preds.size(), getQTableStats());
+        return super.toString() + String.format(
+                " [ε=%.3f, E=%.0f/%.0f(%.0f%%), EF=%.2f, %s]",
+                currentEpsilon,
+                currentEnergy, maxEnergy, getEnergyRatio() * 100,
+                maxEnergy > 0 ? getEnergyFactor() : 1.0,
+                getQTableStats());
     }
 }

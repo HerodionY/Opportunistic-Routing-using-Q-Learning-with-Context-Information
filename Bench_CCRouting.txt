@@ -19,9 +19,8 @@ Scenario.endTime = 43200
 ## Interface settings
 btInterface.type = SimpleBroadcastInterface
 btInterface.transmitSpeed = 250k
-# Naikkan range 10m → 25m: lebih banyak kontak antar node,
-# Q-table lebih cepat belajar, hop count lebih bervariasi
 btInterface.transmitRange = 25
+btInterface.scanInterval = 120
 
 ## Group settings
 Scenario.nrofHostGroups = 6
@@ -81,21 +80,29 @@ Group6.bufferSize = 50M
 Group6.nrofHosts = 2
 
 ## CCRouting (ORQLCI) Settings
-# updateInterval untuk periodic ageQTable()
 CCRouting.updateInterval = 30
 # Parameter sesuai paper Section 4.1 (optimal values)
 CCRouting.baseDiscountGamma = 0.6
 CCRouting.learningCoeff = 0.8
 
 # Epsilon-Greedy Exploration — Exponential Decay
-# Exponential lebih baik dari linear untuk DTN:
-# - Awal simulasi: ε tinggi → banyak explore, Q-table cepat terisi
-# - Setelah ~30% simulasi: ε sudah turun signifikan → mayoritas exploit
-# - Linear terlalu lambat turun, masih banyak random di pertengahan simulasi
 CCRouting.epsilonStart = 1.0
 CCRouting.epsilonEnd = 0.05
 CCRouting.epsilonDecayType = exponential
 CCRouting.simulationTotalTime = 43200
+
+# Energy Awareness (non-restorable)
+# Tiap node mendapat energy random antara [initialEnergy-200, initialEnergy]
+CCRouting.initialEnergy = 1000
+CCRouting.scanEnergy = 0.1
+CCRouting.transmitEnergy = 0.5
+CCRouting.receiveEnergy = 0.1
+# Hard gate: ≤4% → tolak receive pesan baru
+CCRouting.hardEnergyThreshold = 0.04
+# Soft zone: 5%-20% → EF mulai penalti discount factor
+CCRouting.softEnergyThreshold = 0.05
+# Soft upper: >20% → EF = 1.0 (no penalty)
+CCRouting.softEnergyUpperBound = 0.20
 
 ## Message creation parameters
 Events.nrof = 1
@@ -122,7 +129,7 @@ MapBasedMovement.mapFile4 = data/shops.wkt
 ## Reports
 Report.nrofReports = 2
 Report.warmup = 1000
-Report.reportDir = hasil_skripsi/test_1/Helsinki/
+Report.reportDir = hasil_skripsi/test_1/Helsinki/energy/
 Report.report1 = MessageStatsReport
 Report.report2 = ContactTimesReport
 

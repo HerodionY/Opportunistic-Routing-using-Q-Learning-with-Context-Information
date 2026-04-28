@@ -62,7 +62,7 @@ MovementModel.worldSize = 100, 100
 
 Report.nrofReports = 2
 Report.warmup = 0
-Report.reportDir = hasil_skripsi/test_1/Reality/
+Report.reportDir = hasil_skripsi/test_1/Reality/energy/
 Report.report1 = MessageStatsReport
 Report.report2 = NodeDeathReport
 NodeDeathReport.granularity = 3600

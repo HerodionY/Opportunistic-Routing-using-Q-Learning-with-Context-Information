@@ -1,0 +1,6 @@
+# Node Death / Hard-Gate Report
+# sim_time	node_addr	router_type	max_energy	energy_ratio	event
+
+# ===== SUMMARY =====
+# total_dead_nodes: 0
+# total_hard_gate_nodes (ORQLCI only): 0

@@ -25,8 +25,6 @@ public class CCRouting extends QLearningRouter {
     private static final double P_INIT = 0.75;
     private static final double BETA = 0.25;
     private static final int SEC_IN_TU = 30;
-    private static final double DIRECTION_THRESHOLD_DEGREES = 45.0;
-    private static final double DIRECTION_THRESHOLD_COS = Math.cos(Math.toRadians(DIRECTION_THRESHOLD_DEGREES));
 
     private Map<DTNHost, Double> preds;
     private double lastAgeUpdate = 0.0;
@@ -331,30 +329,6 @@ public class CCRouting extends QLearningRouter {
         return Math.max(0.0, Math.min(1.0, 1.0 - (double) occupied / cTotal));
     }
 
-    private double getDirectionalCosine(DTNHost relay, DTNHost destination) {
-        Coord relayLocation = relay.getLocation();
-        Coord relayWaypoint = relay.getDestination();
-        Coord destinationLocation = destination.getLocation();
-
-        if (relayLocation == null || relayWaypoint == null || destinationLocation == null) {
-            return -1.0;
-        }
-
-        double moveX = relayWaypoint.getX() - relayLocation.getX();
-        double moveY = relayWaypoint.getY() - relayLocation.getY();
-        double targetX = destinationLocation.getX() - relayLocation.getX();
-        double targetY = destinationLocation.getY() - relayLocation.getY();
-
-        double moveNorm = Math.hypot(moveX, moveY);
-        if (moveNorm == 0.0)
-            return -1.0;
-
-        double targetNorm = Math.hypot(targetX, targetY);
-        if (targetNorm == 0.0)
-            return 1.0;
-
-        return ((moveX * targetX) + (moveY * targetY)) / (moveNorm * targetNorm);
-    }
 
     private void updateQTableOnContact(DTNHost other, CCRouting otherRouter) {
         ageQTable(SEC_IN_TU);
@@ -479,10 +453,9 @@ public class CCRouting extends QLearningRouter {
                         }
                     }
                 } else {
-                    double directionalCosine = getDirectionalCosine(other, m.getTo());
-                    if (directionalCosine >= DIRECTION_THRESHOLD_COS) {
+                    if (rng.nextDouble() < this.currentEpsilon) {
                         shouldForward = true;
-                        candidateScore = directionalCosine;
+                        candidateScore = rng.nextDouble();
                     }
                 }
 

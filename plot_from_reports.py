@@ -105,7 +105,7 @@ def plot_comparison(protocols, delivery_data, overhead_data, latency_data, drop_
     plt.tight_layout(rect=[0, 0.03, 1, 0.95])
 
     # Simpan hasil plot
-    output_filename = "reports_skripsi/chart/Reality_Buffer100MB.png"
+    output_filename = "reports_skripsi/chart/Energy_Chart.png"
     output_directory = os.path.dirname(output_filename)
     if not os.path.exists(output_directory):
         os.makedirs(output_directory)
@@ -125,9 +125,9 @@ if __name__ == "__main__":
     # }
 
     report_files = {
-        "ORQLCI": "reports_skripsi/reality/ORQLCI/Reality_ORQLCI_Final_MessageStatsReport.txt",
-        "Epidemic": "reports_skripsi/reality/Epidemics/Reality_Epidemic_Baseline_MessageStatsReport.txt",
-        "Prophet": "reports_skripsi/reality/Prophet/Reality_Prophet_Baseline_MessageStatsReport.txt",
+        "ORQLCI": "hasil_skripsi/test_1/Helsinki/energy/ORQLCI_ShortestMap_Optimized_MessageStatsReport.txt",
+        "Epidemic": "hasil_skripsi/test_1/Helsinki/energy/Epidemic_Helsinki_EnergyAware_MessageStatsReport.txt",
+        "Prophet": "hasil_skripsi/test_1/Helsinki/energy/Prophet_Helsinki_EnergyAware_MessageStatsReport.txt",
     }
 
     protocols = list(report_files.keys())

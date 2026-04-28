@@ -1,25 +1,3 @@
-#
-# Configuration for Prophet - Helsinki (ShortestPathMapBased)
-# FAIR COMPARISON dengan Bench_CCRouting.txt (ORQLCI Helsinki)
-#
-# Parameter IDENTIK dengan ORQLCI Helsinki:
-# - Scenario.endTime, updateInterval
-# - btInterface: transmitSpeed, transmitRange, scanInterval
-# - Group: movementModel, bufferSize, waitTime, speed, msgTtl
-# - Node groups & distributions (6 groups, total 200 node)
-# - Events: interval, size, hosts, prefix
-# - MovementModel: rngSeed, worldSize, warmup
-# - MapBasedMovement: semua mapFile identik
-# - Report: warmup, reportDir, nrofReports
-# - Optimization: identik
-#
-# Energy model:
-# - Variabel identik dengan CCRouting (initialEnergy, scanEnergy, transmitEnergy, receiveEnergy)
-# - Drain model sama: scan/120s + transmit/receive proportional waktu
-# - Initial energy random [800, 1000] per node (seed deterministik berbasis address)
-# - TANPA hard gate, TANPA soft zone — PRoPHET routing murni sampai energi habis
-# - Ketika energy = 0: node mati secara alami (tidak bisa routing/terima pesan baru)
-#
 
 ## Scenario settings
 Scenario.name = Prophet_Helsinki_EnergyAware
@@ -90,9 +68,9 @@ ProphetRouter.beta = 0.25
 ## ProphetEnergyRouter Settings (identik dengan CCRouting)
 # Initial energy random [800, 1000] per node, seed dari address node
 ProphetEnergyRouter.initialEnergy = 1000
-ProphetEnergyRouter.scanEnergy = 0.1
-ProphetEnergyRouter.transmitEnergy = 0.5
-ProphetEnergyRouter.receiveEnergy = 0.1
+ProphetEnergyRouter.scanEnergy = 0.02
+ProphetEnergyRouter.transmitEnergy = 1.2
+ProphetEnergyRouter.receiveEnergy = 0.2
 # Tidak ada hardEnergyThreshold — Prophet routing sampai mati alami di energy=0
 
 ## Message creation parameters (IDENTIK dengan ORQLCI Helsinki)

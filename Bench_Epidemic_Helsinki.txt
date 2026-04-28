@@ -1,25 +1,3 @@
-#
-# Configuration for Epidemic - Helsinki (ShortestPathMapBased)
-# FAIR COMPARISON dengan Bench_CCRouting.txt (ORQLCI Helsinki)
-#
-# Parameter IDENTIK dengan ORQLCI Helsinki:
-# - Scenario.endTime, updateInterval
-# - btInterface: transmitSpeed, transmitRange, scanInterval
-# - Group: movementModel, bufferSize, waitTime, speed, msgTtl
-# - Node groups & distributions (6 groups, total 200 node)
-# - Events: interval, size, hosts, prefix
-# - MovementModel: rngSeed, worldSize, warmup
-# - MapBasedMovement: semua mapFile identik
-# - Report: warmup, reportDir, nrofReports
-# - Optimization: identik
-#
-# Energy model:
-# - Variabel identik dengan CCRouting (initialEnergy, scanEnergy, transmitEnergy, receiveEnergy)
-# - Drain model sama: scan/120s + transmit/receive proportional waktu
-# - Initial energy random [800, 1000] per node (seed deterministik berbasis address)
-# - TANPA hard gate, TANPA soft zone — Epidemic routing murni sampai energi habis
-# - Ketika energy = 0: node mati secara alami (tidak bisa routing/terima pesan baru)
-#
 
 ## Scenario settings
 Scenario.name = Epidemic_Helsinki_EnergyAware
@@ -45,7 +23,6 @@ Group.interface1 = btInterface
 Group.speed = 0.5, 1.5
 Group.msgTtl = 600
 
-# --- NODE DISTRIBUTIONS (Total 200, identik dengan ORQLCI) ---
 Group1.groupID = p
 Group1.nrofHosts = 64
 
@@ -83,13 +60,10 @@ Group6.speed = 7, 10
 Group6.bufferSize = 50M
 Group6.nrofHosts = 2
 
-## EpidemicEnergyRouter Settings (identik dengan CCRouting)
-# Initial energy random [800, 1000] per node, seed dari address node
 EpidemicEnergyRouter.initialEnergy = 1000
-EpidemicEnergyRouter.scanEnergy = 0.1
-EpidemicEnergyRouter.transmitEnergy = 0.5
-EpidemicEnergyRouter.receiveEnergy = 0.1
-# Tidak ada hardEnergyThreshold — Epidemic routing sampai mati alami di energy=0
+EpidemicEnergyRouter.scanEnergy = 0.02
+EpidemicEnergyRouter.transmitEnergy = 1.2
+EpidemicEnergyRouter.receiveEnergy = 0.2
 
 ## Message creation parameters (IDENTIK dengan ORQLCI Helsinki)
 Events.nrof = 1
@@ -99,7 +73,6 @@ Events1.size = 500k, 1M
 Events1.hosts = 0, 199
 Events1.prefix = M
 
-## Movement model settings (IDENTIK dengan ORQLCI Helsinki)
 MovementModel.rngSeed = 1
 MovementModel.worldSize = 4500, 3400
 MovementModel.warmup = 1000
@@ -110,7 +83,6 @@ MapBasedMovement.mapFile2 = data/main_roads.wkt
 MapBasedMovement.mapFile3 = data/pedestrian_paths.wkt
 MapBasedMovement.mapFile4 = data/shops.wkt
 
-## Reports (identik dengan ORQLCI Helsinki)
 Report.nrofReports = 3
 Report.warmup = 1000
 Report.reportDir = hasil_skripsi/test_1/Helsinki/energy/

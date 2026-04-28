@@ -1,14 +1,3 @@
-#
-# Configuration for ORQLCI - ShortestPathMapBased
-# Total Nodes: 200 | Simulation Time: 12h
-#
-# Optimisasi untuk delivery probability tinggi (target >75%):
-# 1. Buffer 50MB → node tidak cepat penuh, lebih banyak pesan bisa diterima
-# 2. TTL 600 menit → pesan punya waktu relay lebih panjang (10 jam dari 12 jam sim)
-# 3. Message interval 25-35s → kurangi beban buffer, sesuai paper Table 1
-# 4. Transmit range 25m → lebih banyak kontak, Q-table lebih cepat belajar
-# 5. Epsilon exponential decay → cepat beralih ke exploitation setelah Q-table terisi
-#
 
 ## Scenario settings
 Scenario.name = ORQLCI_ShortestMap_Optimized
@@ -27,19 +16,13 @@ Scenario.nrofHostGroups = 6
 
 Group.movementModel = ShortestPathMapBasedMovement
 Group.router = CCRouting
-# Buffer 50MB sesuai paper Table 1 (node cache size 50MB)
-# Buffer besar = node tidak cepat penuh = lebih banyak relay = delivery naik
 Group.bufferSize = 50M
 Group.waitTime = 0, 120
 Group.nrofInterfaces = 1
 Group.interface1 = btInterface
 Group.speed = 0.5, 1.5
-# TTL 600 menit (10 jam): pesan punya cukup waktu untuk multi-hop relay
-# dalam simulasi 12 jam. TTL 300 menit terlalu pendek untuk pesan yang
-# lahir di pertengahan simulasi.
 Group.msgTtl = 600
 
-# --- NODE DISTRIBUTIONS (Total 200) ---
 Group1.groupID = p
 Group1.nrofHosts = 64
 
@@ -50,8 +33,6 @@ Group2.nrofHosts = 64
 Group3.groupID = w
 Group3.nrofHosts = 66
 
-# Tram groups — relay node dengan mobilitas tinggi dan buffer besar
-# sangat membantu delivery probability karena sering kontak banyak node
 Group4.groupID = t
 Group4.movementModel = MapRouteMovement
 Group4.routeFile = data/tram3.wkt
@@ -79,45 +60,31 @@ Group6.speed = 7, 10
 Group6.bufferSize = 50M
 Group6.nrofHosts = 2
 
-## CCRouting (ORQLCI) Settings
 CCRouting.updateInterval = 30
-# Parameter sesuai paper Section 4.1 (optimal values)
 CCRouting.baseDiscountGamma = 0.6
 CCRouting.learningCoeff = 0.8
 CCRouting.encounterDecayGamma = 0.98
 CCRouting.qAgingOmega = 0.98
 
-# Epsilon-Greedy Exploration — Exponential Decay
 CCRouting.epsilonStart = 1.0
 CCRouting.epsilonEnd = 0.05
 CCRouting.epsilonDecayType = exponential
 CCRouting.simulationTotalTime = 43200
 
-# Energy Awareness (non-restorable)
-# Tiap node mendapat energy random antara [initialEnergy-200, initialEnergy]
 CCRouting.initialEnergy = 1000
 CCRouting.scanEnergy = 0.1
 CCRouting.transmitEnergy = 0.5
 CCRouting.receiveEnergy = 0.1
-# Hard gate: ≤4% → tolak receive pesan baru
 CCRouting.hardEnergyThreshold = 0.04
-# Soft zone: 5%-20% → EF mulai penalti discount factor
 CCRouting.softEnergyThreshold = 0.05
-# Soft upper: >20% → EF = 1.0 (no penalty)
 CCRouting.softEnergyUpperBound = 0.20
 
-## Message creation parameters
 Events.nrof = 1
 Events1.class = MessageEventGenerator
-# Interval 25-35s (sesuai paper Table 1: 15s-25s, sedikit lebih jarang)
-# untuk mengurangi beban buffer dengan 200 node aktif
 Events1.interval = 25, 35
-# Message size sesuai paper
 Events1.size = 500k, 1M
 Events1.hosts = 0, 199
 Events1.prefix = M
-
-## Movement model settings
 MovementModel.rngSeed = 1
 MovementModel.worldSize = 4500, 3400
 MovementModel.warmup = 1000

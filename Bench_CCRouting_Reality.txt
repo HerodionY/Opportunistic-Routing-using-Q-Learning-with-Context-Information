@@ -1,16 +1,3 @@
-#
-# Configuration for ORQLCI - Reality Mining (MIT) Trace
-# Total Nodes: 97 (node aktif yang benar-benar melakukan kontak di trace)
-# Duration: ~19.6 hari | Trace-Based
-#
-# FAIRNESS NOTES (harus identik dengan Bench_Epidemic_Reality & Bench_Prophet_Reality):
-# - bufferSize: 100M (sama dengan baseline)
-# - msgTtl: 28800 menit (20 hari) — semua router identik, cover seluruh simulasi 19.6 hari
-# - Events2.size: 500k (sama dengan baseline)
-# - Events2.time: 0, 1698181 (sama dengan baseline, tidak ada cooldown asimetris)
-# - transmitRange, scanInterval, worldSize: identik
-#
-
 ## Scenario settings
 Scenario.name = ORQLCI_Reality_Final
 Scenario.simulateConnections = false
@@ -28,19 +15,15 @@ Scenario.nrofHostGroups = 1
 
 Group.movementModel = StationaryMovement
 Group.router = CCRouting
-# FAIR: sama dengan baseline Prophet & Epidemic Reality (100M)
 Group.bufferSize = 100M
 Group.nrofInterfaces = 1
 Group.interface1 = btInterface
-# TTL 28800 menit (20 hari) — cover seluruh durasi simulasi 19.6 hari
 Group.msgTtl = 28800
 
-# --- NODE DISTRIBUTIONS (Total 250 Partisipan MIT) ---
 Group1.groupID = P
 Group1.nrofHosts = 97
 Group1.nodeLocation = 1, 1
 
-## CCRouting (ORQLCI) Settings
 CCRouting.updateInterval = 900
 CCRouting.baseDiscountGamma = 0.6
 CCRouting.learningCoeff = 0.8
@@ -50,49 +33,38 @@ CCRouting.epsilonEnd = 0.05
 CCRouting.epsilonDecayType = exponential
 CCRouting.simulationTotalTime = 1698181
 
-# Energy Awareness (non-restorable)
 CCRouting.initialEnergy = 1000
 CCRouting.scanEnergy = 0.1
 CCRouting.transmitEnergy = 0.5
 CCRouting.receiveEnergy = 0.1
 CCRouting.hardEnergyThreshold = 0.04
 CCRouting.softEnergyThreshold = 0.05
-# Soft upper: >20% → EF = 1.0 (no penalty)
 CCRouting.softEnergyUpperBound = 0.20
 
-# Perlambat decay encounter prob dan Q-value untuk sparse network.
-# Default 0.98 per 30s = decay habis dalam ~1 hari tanpa kontak.
-# Reality Mining: kontak bisa tidak terjadi berhari-hari → pakai 0.9999
-# 0.9999^(86400/30) = 0.9999^2880 ≈ 0.75 per hari (jauh lebih lambat)
 CCRouting.encounterDecayGamma = 0.9999
 CCRouting.qAgingOmega = 0.9999
 
 ## Message creation parameters
 Events.nrof = 2
 
-# Event 1: Reality Mining trace
 Events1.class = ExternalEventsQueue
 Events1.filePath = RealityConnectionTraceFinal.txt
 
-# Event 2: Message generator — IDENTIK dengan baseline
 Events2.class = MessageEventGenerator
 Events2.interval = 290, 310
-# FAIR: size 500k identik dengan baseline Epidemic & Prophet Reality
 Events2.size = 500k
 Events2.hosts = 0, 96
 Events2.prefix = M
-# FAIR: generate pesan sepanjang simulasi, identik dengan baseline
 Events2.time = 0, 1698181
 
-## Movement model settings
 MovementModel.rngSeed = 1
 MovementModel.worldSize = 100, 100
 
-## Reports
-Report.nrofReports = 1
-Report.warmup = 1
+Report.nrofReports = 2
+Report.warmup = 0
 Report.reportDir = hasil_skripsi/test_1/Reality/
 Report.report1 = MessageStatsReport
+Report.report2 = NodeDeathReport
+NodeDeathReport.granularity = 3600
 
-## Optimization
 Optimization.randomizeUpdateOrder = true

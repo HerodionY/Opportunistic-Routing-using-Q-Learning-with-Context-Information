@@ -68,9 +68,9 @@ ProphetRouter.beta = 0.25
 ## ProphetEnergyRouter Settings (identik dengan CCRouting)
 # Initial energy random [800, 1000] per node, seed dari address node
 ProphetEnergyRouter.initialEnergy = 1000
-ProphetEnergyRouter.scanEnergy = 0.02
-ProphetEnergyRouter.transmitEnergy = 1.2
-ProphetEnergyRouter.receiveEnergy = 0.2
+ProphetEnergyRouter.scanEnergy = 0.04
+ProphetEnergyRouter.transmitEnergy = 0.7
+ProphetEnergyRouter.receiveEnergy = 0.1
 # Tidak ada hardEnergyThreshold — Prophet routing sampai mati alami di energy=0
 
 ## Message creation parameters (IDENTIK dengan ORQLCI Helsinki)

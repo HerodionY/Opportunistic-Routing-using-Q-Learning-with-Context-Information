@@ -115,11 +115,13 @@ MapBasedMovement.mapFile3 = data/pedestrian_paths.wkt
 MapBasedMovement.mapFile4 = data/shops.wkt
 
 ## Reports (identik dengan ORQLCI Helsinki)
-Report.nrofReports = 2
+Report.nrofReports = 3
 Report.warmup = 1000
 Report.reportDir = hasil_skripsi/test_1/Helsinki/energy/
 Report.report1 = MessageStatsReport
 Report.report2 = ContactTimesReport
+Report.report3 = NodeDeathReport
+NodeDeathReport.granularity = 60
 
 ## Optimization
 Optimization.cellSizeMult = 5

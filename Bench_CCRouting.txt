@@ -84,6 +84,8 @@ CCRouting.updateInterval = 30
 # Parameter sesuai paper Section 4.1 (optimal values)
 CCRouting.baseDiscountGamma = 0.6
 CCRouting.learningCoeff = 0.8
+CCRouting.encounterDecayGamma = 0.98
+CCRouting.qAgingOmega = 0.98
 
 # Epsilon-Greedy Exploration — Exponential Decay
 CCRouting.epsilonStart = 1.0
@@ -127,11 +129,13 @@ MapBasedMovement.mapFile3 = data/pedestrian_paths.wkt
 MapBasedMovement.mapFile4 = data/shops.wkt
 
 ## Reports
-Report.nrofReports = 2
+Report.nrofReports = 3
 Report.warmup = 1000
 Report.reportDir = hasil_skripsi/test_1/Helsinki/energy/
 Report.report1 = MessageStatsReport
 Report.report2 = ContactTimesReport
+Report.report3 = NodeDeathReport
+NodeDeathReport.granularity = 60
 
 ## Optimization
 Optimization.cellSizeMult = 5

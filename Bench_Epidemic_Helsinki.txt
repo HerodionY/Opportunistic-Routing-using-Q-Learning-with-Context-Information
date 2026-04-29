@@ -61,9 +61,9 @@ Group6.bufferSize = 50M
 Group6.nrofHosts = 2
 
 EpidemicEnergyRouter.initialEnergy = 1000
-EpidemicEnergyRouter.scanEnergy = 0.04
+EpidemicEnergyRouter.scanEnergy = 0.05
 EpidemicEnergyRouter.transmitEnergy = 0.7
-EpidemicEnergyRouter.receiveEnergy = 0.1
+EpidemicEnergyRouter.receiveEnergy = 0.3
 
 ## Message creation parameters (IDENTIK dengan ORQLCI Helsinki)
 Events.nrof = 1

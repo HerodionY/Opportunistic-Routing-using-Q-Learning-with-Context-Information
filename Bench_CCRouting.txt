@@ -72,9 +72,9 @@ CCRouting.epsilonDecayType = exponential
 CCRouting.simulationTotalTime = 43200
 
 CCRouting.initialEnergy = 1000
-CCRouting.scanEnergy = 0.04
-CCRouting.transmitEnergy = 0.7
-CCRouting.receiveEnergy = 0.1
+CCRouting.scanEnergy = 0.055
+CCRouting.transmitEnergy = 0.8
+CCRouting.receiveEnergy = 0.4
 CCRouting.hardEnergyThreshold = 0.04
 CCRouting.softEnergyThreshold = 0.05
 CCRouting.softEnergyUpperBound = 0.20

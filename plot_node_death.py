@@ -17,7 +17,7 @@ import numpy as np
 # =============================================================================
 
 REPORT_DIR = "hasil_skripsi/test_1/Helsinki/energy/test3"
-SIM_DURATION = 43200
+SIM_DURATION = 86400
 TOTAL_NODES = 200
 
 FILES = {

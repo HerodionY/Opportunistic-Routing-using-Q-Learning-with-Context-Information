@@ -1,9 +1,8 @@
-
 ## Scenario settings
 Scenario.name = Prophet_Helsinki_EnergyAware
 Scenario.simulateConnections = true
 Scenario.updateInterval = 0.1
-Scenario.endTime = 43200
+Scenario.endTime = 86400
 
 ## Interface settings
 btInterface.type = SimpleBroadcastInterface
@@ -23,7 +22,6 @@ Group.interface1 = btInterface
 Group.speed = 0.5, 1.5
 Group.msgTtl = 600
 
-# --- NODE DISTRIBUTIONS (Total 200, identik dengan ORQLCI) ---
 Group1.groupID = p
 Group1.nrofHosts = 64
 
@@ -61,16 +59,16 @@ Group6.speed = 7, 10
 Group6.bufferSize = 50M
 Group6.nrofHosts = 2
 
-## PRoPHET Settings (nilai standar literatur — routing logic tidak berubah)
+## PRoPHET router-specific params (satu-satunya yang boleh beda)
 ProphetRouter.secondsInTimeUnit = 30
 ProphetRouter.beta = 0.25
 
-ProphetEnergyRouter.initialEnergy = 1000
-ProphetEnergyRouter.scanEnergy = 0.055
-ProphetEnergyRouter.transmitEnergy = 0.8
+## [SHARED - identik dengan CCRouting & Epidemic]
+ProphetEnergyRouter.initialEnergy = 2000
+ProphetEnergyRouter.scanEnergy = 0.06
+ProphetEnergyRouter.transmitEnergy = 1.8
 ProphetEnergyRouter.receiveEnergy = 0.4
 
-## Message creation parameters (IDENTIK dengan ORQLCI Helsinki)
 Events.nrof = 1
 Events1.class = MessageEventGenerator
 Events1.interval = 25, 35
@@ -78,7 +76,6 @@ Events1.size = 500k, 1M
 Events1.hosts = 0, 199
 Events1.prefix = M
 
-## Movement model settings (IDENTIK dengan ORQLCI Helsinki)
 MovementModel.rngSeed = 1
 MovementModel.worldSize = 4500, 3400
 MovementModel.warmup = 1000
@@ -89,20 +86,17 @@ MapBasedMovement.mapFile2 = data/main_roads.wkt
 MapBasedMovement.mapFile3 = data/pedestrian_paths.wkt
 MapBasedMovement.mapFile4 = data/shops.wkt
 
-## Reports (identik dengan ORQLCI Helsinki)
 Report.nrofReports = 3
 Report.warmup = 1000
-Report.reportDir = hasil_skripsi/test_1/Helsinki/energy/
+Report.reportDir = hasil_skripsi/test_1/Helsinki/energy/test3/
 Report.report1 = MessageStatsReport
 Report.report2 = ContactTimesReport
 Report.report3 = NodeDeathReport
 NodeDeathReport.granularity = 60
 
-## Optimization
 Optimization.cellSizeMult = 5
 Optimization.randomizeUpdateOrder = true
 
-## GUI
 GUI.UnderlayImage.fileName = data/helsinki_underlay.png
 GUI.UnderlayImage.offset = 64, 20
 GUI.UnderlayImage.scale = 4.75

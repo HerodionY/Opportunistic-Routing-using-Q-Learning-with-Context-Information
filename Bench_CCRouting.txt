@@ -1,9 +1,8 @@
-
 ## Scenario settings
 Scenario.name = ORQLCI_ShortestMap_Optimized
 Scenario.simulateConnections = true
 Scenario.updateInterval = 0.1
-Scenario.endTime = 43200
+Scenario.endTime = 86400
 
 ## Interface settings
 btInterface.type = SimpleBroadcastInterface
@@ -60,6 +59,7 @@ Group6.speed = 7, 10
 Group6.bufferSize = 50M
 Group6.nrofHosts = 2
 
+## CCRouting-specific parameters
 CCRouting.updateInterval = 30
 CCRouting.baseDiscountGamma = 0.6
 CCRouting.learningCoeff = 0.8
@@ -71,9 +71,10 @@ CCRouting.epsilonEnd = 0.05
 CCRouting.epsilonDecayType = exponential
 CCRouting.simulationTotalTime = 43200
 
-CCRouting.initialEnergy = 1000
-CCRouting.scanEnergy = 0.055
-CCRouting.transmitEnergy = 0.8
+## [SHARED - identik dengan Epidemic & Prophet]
+CCRouting.initialEnergy = 2000
+CCRouting.scanEnergy = 0.06
+CCRouting.transmitEnergy = 1.8
 CCRouting.receiveEnergy = 0.4
 CCRouting.hardEnergyThreshold = 0.04
 CCRouting.softEnergyThreshold = 0.05
@@ -85,6 +86,7 @@ Events1.interval = 25, 35
 Events1.size = 500k, 1M
 Events1.hosts = 0, 199
 Events1.prefix = M
+
 MovementModel.rngSeed = 1
 MovementModel.worldSize = 4500, 3400
 MovementModel.warmup = 1000
@@ -95,20 +97,17 @@ MapBasedMovement.mapFile2 = data/main_roads.wkt
 MapBasedMovement.mapFile3 = data/pedestrian_paths.wkt
 MapBasedMovement.mapFile4 = data/shops.wkt
 
-## Reports
 Report.nrofReports = 3
 Report.warmup = 1000
-Report.reportDir = hasil_skripsi/test_1/Helsinki/energy/
+Report.reportDir = hasil_skripsi/test_1/Helsinki/energy/test3/
 Report.report1 = MessageStatsReport
 Report.report2 = ContactTimesReport
 Report.report3 = NodeDeathReport
 NodeDeathReport.granularity = 60
 
-## Optimization
 Optimization.cellSizeMult = 5
 Optimization.randomizeUpdateOrder = true
 
-## GUI
 GUI.UnderlayImage.fileName = data/helsinki_underlay.png
 GUI.UnderlayImage.offset = 64, 20
 GUI.UnderlayImage.scale = 4.75

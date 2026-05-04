@@ -1,9 +1,8 @@
-
 ## Scenario settings
 Scenario.name = Epidemic_Helsinki_EnergyAware
 Scenario.simulateConnections = true
 Scenario.updateInterval = 0.1
-Scenario.endTime = 43200
+Scenario.endTime = 86400
 
 ## Interface settings
 btInterface.type = SimpleBroadcastInterface
@@ -60,12 +59,12 @@ Group6.speed = 7, 10
 Group6.bufferSize = 50M
 Group6.nrofHosts = 2
 
-EpidemicEnergyRouter.initialEnergy = 1000
-EpidemicEnergyRouter.scanEnergy = 0.05
-EpidemicEnergyRouter.transmitEnergy = 0.7
-EpidemicEnergyRouter.receiveEnergy = 0.3
+## [SHARED - identik dengan CCRouting & Prophet]
+EpidemicEnergyRouter.initialEnergy = 2000
+EpidemicEnergyRouter.scanEnergy = 0.06
+EpidemicEnergyRouter.transmitEnergy = 1.8
+EpidemicEnergyRouter.receiveEnergy = 0.4
 
-## Message creation parameters (IDENTIK dengan ORQLCI Helsinki)
 Events.nrof = 1
 Events1.class = MessageEventGenerator
 Events1.interval = 25, 35
@@ -85,17 +84,15 @@ MapBasedMovement.mapFile4 = data/shops.wkt
 
 Report.nrofReports = 3
 Report.warmup = 1000
-Report.reportDir = hasil_skripsi/test_1/Helsinki/energy/
+Report.reportDir = hasil_skripsi/test_1/Helsinki/energy/test3/
 Report.report1 = MessageStatsReport
 Report.report2 = ContactTimesReport
 Report.report3 = NodeDeathReport
 NodeDeathReport.granularity = 60
 
-## Optimization
 Optimization.cellSizeMult = 5
 Optimization.randomizeUpdateOrder = true
 
-## GUI
 GUI.UnderlayImage.fileName = data/helsinki_underlay.png
 GUI.UnderlayImage.offset = 64, 20
 GUI.UnderlayImage.scale = 4.75

@@ -16,7 +16,7 @@ import numpy as np
 # CONFIG
 # =============================================================================
 
-REPORT_DIR = "hasil_skripsi/test_1/Helsinki/energy"
+REPORT_DIR = "hasil_skripsi/test_1/Helsinki/energy/test3"
 SIM_DURATION = 43200
 TOTAL_NODES = 200
 

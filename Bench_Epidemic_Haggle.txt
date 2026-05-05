@@ -1,19 +1,3 @@
-#
-# Configuration for Epidemic - Haggle (Infocom 5) Trace
-# FAIR COMPARISON dengan Bench_CCRouting_Haggle.txt (ORQLCI Haggle)
-#
-# Parameter yang IDENTIK dengan ORQLCI Haggle:
-# - Scenario.endTime = 274883
-# - btInterface: transmitSpeed, transmitRange, scanInterval
-# - Group: movementModel, bufferSize, msgTtl
-# - Node: 41 node, nodeLocation
-# - Events: interval, size, hosts, prefix, time
-# - ExternalEventsQueue: filePath identik
-# - MovementModel: rngSeed, worldSize
-# - Report: warmup, reportDir
-# - Optimization: identik
-#
-
 ## Scenario settings
 Scenario.name = Epidemic_Haggle_Infocom5_Baseline
 Scenario.simulateConnections = false
@@ -21,6 +5,7 @@ Scenario.updateInterval = 1
 Scenario.endTime = 274883
 
 ## Interface settings
+## [HAGGLE-SPECIFIC] transmitRange=10, scanInterval=120 — standar dataset Haggle/Infocom5
 btInterface.type = SimpleBroadcastInterface
 btInterface.transmitSpeed = 250k
 btInterface.transmitRange = 10
@@ -30,18 +15,24 @@ btInterface.scanInterval = 120
 Scenario.nrofHostGroups = 1
 
 Group.movementModel = StationaryMovement
-Group.router = EpidemicRouter
+Group.router = EpidemicEnergyRouter
+## [HAGGLE-SPECIFIC] bufferSize=10M, msgTtl=2880 — standar Haggle
 Group.bufferSize = 10M
 Group.nrofInterfaces = 1
 Group.interface1 = btInterface
 Group.msgTtl = 2880
 
-# --- NODE DISTRIBUTIONS (identik dengan ORQLCI Haggle) ---
+## Node distribution — standar Haggle Infocom5 (41 node)
 Group1.groupID = P
 Group1.nrofHosts = 41
 Group1.nodeLocation = 10, 10
 
-## Event generators (IDENTIK dengan ORQLCI Haggle)
+EpidemicEnergyRouter.initialEnergy = 800
+EpidemicEnergyRouter.scanEnergy = 0.12
+EpidemicEnergyRouter.transmitEnergy = 2.2
+EpidemicEnergyRouter.receiveEnergy = 0.8
+
+## Event generators
 Events.nrof = 2
 
 Events1.class = ExternalEventsQueue
@@ -54,15 +45,17 @@ Events2.hosts = 0, 40
 Events2.prefix = M
 Events2.time = 0, 253283
 
-## Movement model settings (IDENTIK dengan ORQLCI Haggle)
+## Movement model
 MovementModel.rngSeed = 1
 MovementModel.worldSize = 100, 100
 
 ## Reports
-Report.nrofReports = 1
+Report.nrofReports = 2
 Report.warmup = 1
-Report.reportDir = hasil_skripsi/test_1/Haggle/
+Report.reportDir = hasil_skripsi/test_1/Haggle/test1/
 Report.report1 = MessageStatsReport
+Report.report2 = NodeDeathReport
+NodeDeathReport.granularity = 60
 
 ## Optimization
 Optimization.cellSizeMult = 5

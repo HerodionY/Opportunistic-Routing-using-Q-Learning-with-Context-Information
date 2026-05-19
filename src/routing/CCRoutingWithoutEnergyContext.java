@@ -3,7 +3,7 @@ package routing;
 import core.*;
 import java.util.*;
 
-public class CCRouting extends QLearningRouter {
+public class CCRoutingWithoutEnergyContext extends QLearningRouterWithoutEnergyContext {
 
     private static final String CCROUTING_NS = "CCRouting";
     private static final String BASE_GAMMA_S = "baseDiscountGamma";
@@ -40,7 +40,7 @@ public class CCRouting extends QLearningRouter {
 
     private List<Connection> candidateReceiver;
 
-    public CCRouting(Settings s) {
+    public CCRoutingWithoutEnergyContext(Settings s) {
         super(s);
         Settings cc = new Settings(CCROUTING_NS);
 
@@ -80,7 +80,7 @@ public class CCRouting extends QLearningRouter {
         initLocal();
     }
 
-    protected CCRouting(CCRouting r) {
+    protected CCRoutingWithoutEnergyContext(CCRouting r) {
         super(r);
 
         this.baseDiscountGamma = r.baseDiscountGamma;

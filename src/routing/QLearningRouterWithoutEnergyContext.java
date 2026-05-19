@@ -79,7 +79,7 @@ public abstract class QLearningRouterWithoutEnergyContext extends ActiveRouter {
 		initQTable();
 	}
 
-	protected QLearningRouterWithoutEnergyContext(QLearningRouter r) {
+	protected QLearningRouterWithoutEnergyContext(QLearningRouterWithoutEnergyContext r) {
 		super(r);
 		this.startTimestamps = new HashMap<>();
 		this.connHistory = new HashMap<>();
@@ -497,7 +497,7 @@ public abstract class QLearningRouterWithoutEnergyContext extends ActiveRouter {
 	// =========================================================================
 
 	@Override
-	public abstract QLearningRouter replicate();
+	public abstract QLearningRouterWithoutEnergyContext replicate();
 
 	@Override
 	public void update() {

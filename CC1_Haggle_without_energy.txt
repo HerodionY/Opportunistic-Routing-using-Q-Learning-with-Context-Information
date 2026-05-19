@@ -1,5 +1,5 @@
 ## Scenario settings
-Scenario.name = ORQLCI_Haggle_Infocom5_Final
+Scenario.name = ORQLCI_Haggle_Infocom5_Final-without_energy
 Scenario.simulateConnections = false
 Scenario.updateInterval = 1
 Scenario.endTime = 274883
@@ -13,7 +13,7 @@ btInterface.scanInterval = 120
 Scenario.nrofHostGroups = 1
 
 Group.movementModel = StationaryMovement
-Group.router = CCRouting
+Group.router = CCRoutingWithoutEnergyContext
 Group.bufferSize = 10M
 Group.nrofInterfaces = 1
 Group.interface1 = btInterface
@@ -57,7 +57,7 @@ MovementModel.worldSize = 100, 100
 ## Reports
 Report.nrofReports = 2
 Report.warmup = 1
-Report.reportDir = trial/1/haggle/
+Report.reportDir = trial/1/haggle/withoutEnergy/
 Report.report1 = MessageStatsReport
 Report.report2 = NodeDeathReport
 NodeDeathReport.granularity = 60

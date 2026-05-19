@@ -12,7 +12,6 @@ def parse_message_stats(filepath):
         "delivery_prob": 0.0,
         "overhead_ratio": 0.0,
         "latency_avg": 0.0,
-        "dropped": 0,
     }
 
     if not os.path.exists(filepath):
@@ -26,36 +25,42 @@ def parse_message_stats(filepath):
             if ": " in line:
                 key, val = line.split(": ", 1)
 
-                # Ekstrak data jika kunci cocok
                 if key == "delivery_prob":
                     metrics["delivery_prob"] = float(val)
                 elif key == "overhead_ratio":
                     metrics["overhead_ratio"] = float(val)
                 elif key == "latency_avg":
                     metrics["latency_avg"] = float(val)
-                elif key == "dropped":
-                    metrics["dropped"] = float(val)
 
     return metrics
 
 
-def plot_comparison(protocols, delivery_data, overhead_data, latency_data, drop_data):
-    # Konfigurasi plot
-    fig, axs = plt.subplots(2, 2, figsize=(14, 10))
+# Warna konsisten dengan plot_node_death.py
+COLORS = {
+    "ORQLCI": "#2ecc71",            # Hijau
+    "ORQLCI_Without_EF": "#f39c12", # Oranye
+    "Epidemic": "#e74c3c",          # Merah
+    "Prophet": "#3498db",           # Biru
+}
+
+
+def plot_comparison(protocols, delivery_data, overhead_data, latency_data):
+    # 3 metric → 1 baris × 3 kolom
+    fig, axs = plt.subplots(1, 3, figsize=(16, 5.5))
     fig.suptitle(
         "Perbandingan Evaluasi Kinerja",
         fontsize=16,
         fontweight="bold",
     )
 
-    colors = ["#1f77b4", "#ff7f0e", "#2ca02c"]
+    bar_colors = [COLORS.get(p, "#7f8c8d") for p in protocols]
 
     # 1. Delivery Ratio
-    axs[0, 0].bar(protocols, delivery_data, color=colors, edgecolor="black")
-    axs[0, 0].set_title("Delivery Ratio (delivery_prob)")
-    axs[0, 0].grid(axis="y", linestyle="--", alpha=0.7)
+    axs[0].bar(protocols, delivery_data, color=bar_colors, edgecolor="black")
+    axs[0].set_title("Delivery Ratio (delivery_prob)")
+    axs[0].grid(axis="y", linestyle="--", alpha=0.7)
     for i, v in enumerate(delivery_data):
-        axs[0, 0].text(
+        axs[0].text(
             i,
             v + (max(delivery_data) * 0.01 if max(delivery_data) > 0 else 0),
             f"{v:.4f}",
@@ -64,11 +69,11 @@ def plot_comparison(protocols, delivery_data, overhead_data, latency_data, drop_
         )
 
     # 2. Overhead Ratio
-    axs[0, 1].bar(protocols, overhead_data, color=colors, edgecolor="black")
-    axs[0, 1].set_title("Overhead Ratio")
-    axs[0, 1].grid(axis="y", linestyle="--", alpha=0.7)
+    axs[1].bar(protocols, overhead_data, color=bar_colors, edgecolor="black")
+    axs[1].set_title("Overhead Ratio")
+    axs[1].grid(axis="y", linestyle="--", alpha=0.7)
     for i, v in enumerate(overhead_data):
-        axs[0, 1].text(
+        axs[1].text(
             i,
             v + (max(overhead_data) * 0.01 if max(overhead_data) > 0 else 0),
             f"{v:.2f}",
@@ -77,11 +82,11 @@ def plot_comparison(protocols, delivery_data, overhead_data, latency_data, drop_
         )
 
     # 3. Average Latency
-    axs[1, 0].bar(protocols, latency_data, color=colors, edgecolor="black")
-    axs[1, 0].set_title("Average Latency (latency_avg)")
-    axs[1, 0].grid(axis="y", linestyle="--", alpha=0.7)
+    axs[2].bar(protocols, latency_data, color=bar_colors, edgecolor="black")
+    axs[2].set_title("Average Latency (latency_avg)")
+    axs[2].grid(axis="y", linestyle="--", alpha=0.7)
     for i, v in enumerate(latency_data):
-        axs[1, 0].text(
+        axs[2].text(
             i,
             v + (max(latency_data) * 0.01 if max(latency_data) > 0 else 0),
             f"{v:.1f}",
@@ -89,23 +94,15 @@ def plot_comparison(protocols, delivery_data, overhead_data, latency_data, drop_
             va="bottom",
         )
 
-    # 4. Drop Messages
-    axs[1, 1].bar(protocols, drop_data, color=colors, edgecolor="black")
-    axs[1, 1].set_title("Dropped Messages")
-    axs[1, 1].grid(axis="y", linestyle="--", alpha=0.7)
-    for i, v in enumerate(drop_data):
-        axs[1, 1].text(
-            i,
-            v + (max(drop_data) * 0.01 if max(drop_data) > 0 else 0),
-            f"{int(v)}",
-            ha="center",
-            va="bottom",
-        )
+    # Rotasi xtick label karena ORQLCI_Without_EF agak panjang
+    for ax in axs:
+        ax.tick_params(axis="x", rotation=20)
+        for lbl in ax.get_xticklabels():
+            lbl.set_ha("right")
 
     plt.tight_layout(rect=[0, 0.03, 1, 0.95])
 
-    # Simpan hasil plot
-    output_filename = "trial/1/helsinki/1/Stat_Chart.png"
+    output_filename = "trial/1/haggle/1/Stat_Chart_4.png"
     output_directory = os.path.dirname(output_filename)
     if not os.path.exists(output_directory):
         os.makedirs(output_directory)
@@ -118,16 +115,12 @@ def plot_comparison(protocols, delivery_data, overhead_data, latency_data, drop_
 
 if __name__ == "__main__":
     print("=== Skrip Plotting Otomatis dari MessageStatsReport ===")
-    # report_files = {
-    #     "ORQLCI": "reports_skripsi/ShortestPathMapBasedMovement/ORQLCI/ORQLCI_StateAware_Replication_MessageStatsReport.txt",
-    #     "Epidemic": "reports_skripsi/ShortestPathMapBasedMovement/Epidemic/Epidemic_StateAware_Replication_MessageStatsReport.txt",
-    #     "Prophet": "reports_skripsi/ShortestPathMapBasedMovement/Prophet/Prophet_StateAware_Replication_MessageStatsReport.txt",
-    # }
 
     report_files = {
-        "ORQLCI": "trial/1/helsinki/1/ORQLCI_ShortestMap_Optimized_MessageStatsReport.txt",
-        "Epidemic": "trial/1/helsinki/1/Epidemic_Helsinki_EnergyAware_MessageStatsReport.txt",
-        "Prophet": "trial/1/helsinki/1/Prophet_Helsinki_EnergyAware_MessageStatsReport.txt",
+        "ORQLCI": "trial/1/haggle/ORQLCI_Haggle_Infocom5_Final_MessageStatsReport.txt",
+        "ORQLCI_Without_EF": "trial/1/haggle/withoutEnergy/ORQLCI_Haggle_Infocom5_Final-without_energy_MessageStatsReport.txt",
+        "Epidemic": "trial/1/haggle/Epidemic_Haggle_Infocom5_Baseline_MessageStatsReport.txt",
+        "Prophet": "trial/1/haggle/Prophet_Haggle_Infocom5_Baseline_MessageStatsReport.txt",
     }
 
     protocols = list(report_files.keys())
@@ -135,9 +128,7 @@ if __name__ == "__main__":
     delivery_data = []
     overhead_data = []
     latency_data = []
-    drop_data = []
 
-    # Membaca data dari tiap file report
     for proto in protocols:
         filepath = report_files[proto]
         stats = parse_message_stats(filepath)
@@ -145,7 +136,5 @@ if __name__ == "__main__":
         delivery_data.append(stats["delivery_prob"])
         overhead_data.append(stats["overhead_ratio"])
         latency_data.append(stats["latency_avg"])
-        drop_data.append(stats["dropped"])
 
-    # Membuat Grafik
-    plot_comparison(protocols, delivery_data, overhead_data, latency_data, drop_data)
+    plot_comparison(protocols, delivery_data, overhead_data, latency_data)

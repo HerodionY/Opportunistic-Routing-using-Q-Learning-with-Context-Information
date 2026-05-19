@@ -3,6 +3,7 @@ package report;
 import core.DTNHost;
 import core.UpdateListener;
 import routing.CCRouting;
+import routing.CCRoutingWithoutEnergyContext;
 import routing.EpidemicEnergyRouter;
 import routing.ProphetEnergyRouter;
 
@@ -51,6 +52,9 @@ public class NodeDeathReport extends Report implements UpdateListener {
             if (router instanceof CCRouting) {
                 checkCCRouting(host, (CCRouting) router, addr, now);
 
+            } else if (router instanceof CCRoutingWithoutEnergyContext) {
+                checkCCRoutingWithoutEnergy(host, (CCRoutingWithoutEnergyContext) router, addr, now);
+
             } else if (router instanceof EpidemicEnergyRouter) {
                 checkGenericDeath(host, (EpidemicEnergyRouter) router, addr, now, "Epidemic");
 
@@ -72,6 +76,23 @@ public class NodeDeathReport extends Report implements UpdateListener {
         if (!deadNodes.contains(addr) && currE <= 0) {
             deadNodes.add(addr);
             write(String.format("%.1f\t%d\tORQLCI\t%.2f\t%.4f\tDEAD",
+                    now, addr, maxE, ratio));
+        }
+    }
+
+    private void checkCCRoutingWithoutEnergy(DTNHost host, CCRoutingWithoutEnergyContext r,
+            int addr, double now) {
+        double maxE = r.getMaxEnergy();
+        double currE = r.getCurrentEnergy();
+
+        if (maxE <= 0)
+            return;
+
+        double ratio = currE / maxE;
+
+        if (!deadNodes.contains(addr) && currE <= 0) {
+            deadNodes.add(addr);
+            write(String.format("%.1f\t%d\tORQLCI_NoEnergyCtx\t%.2f\t%.4f\tDEAD",
                     now, addr, maxE, ratio));
         }
     }

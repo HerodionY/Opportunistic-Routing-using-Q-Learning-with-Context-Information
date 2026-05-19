@@ -24,6 +24,9 @@ FILES = {
     "ORQLCI": os.path.join(
         REPORT_DIR, "ORQLCI_Haggle_Infocom5_Final_NodeDeathReport.txt"
     ),
+    "ORQLCI_Without_EF": os.path.join(
+        REPORT_DIR, "withoutEnergy", "ORQLCI_Haggle_Infocom5_Final-without_energy_NodeDeathReport.txt"
+    ),
     "Epidemic": os.path.join(
         REPORT_DIR, "Epidemic_Haggle_Infocom5_Baseline_NodeDeathReport.txt"
     ),
@@ -34,11 +37,12 @@ FILES = {
 
 COLORS = {
     "ORQLCI": "#2ecc71",  # Hijau
+    "ORQLCI_Without_EF": "#f39c12",  # Oranye (ablation, related to ORQLCI)
     "Epidemic": "#e74c3c",  # Merah
     "Prophet": "#3498db",  # Biru
 }
 
-OUTPUT_FILE = os.path.join(REPORT_DIR, "node_death_visulization.png")
+OUTPUT_FILE = os.path.join(REPORT_DIR, "node_death_visulization_4.png")
 
 
 def load_death_report(filepath):
@@ -163,7 +167,7 @@ for bar, count in zip(bars, dead_counts):
     )
 
 ax_bar.set_xticks(x_pos)
-ax_bar.set_xticklabels(protocols, fontsize=12)
+ax_bar.set_xticklabels(protocols, fontsize=10, rotation=20, ha="right")
 ax_bar.set_ylim(0, TOTAL_NODES + 10)
 ax_bar.axhline(TOTAL_NODES, color="gray", linewidth=1, linestyle="--", alpha=0.5)
 ax_bar.text(

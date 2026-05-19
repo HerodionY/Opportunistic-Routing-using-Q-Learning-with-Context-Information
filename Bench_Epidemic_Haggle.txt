@@ -27,10 +27,10 @@ Group1.groupID = P
 Group1.nrofHosts = 41
 Group1.nodeLocation = 10, 10
 
-EpidemicEnergyRouter.initialEnergy = 800
-EpidemicEnergyRouter.scanEnergy = 0.12
-EpidemicEnergyRouter.transmitEnergy = 2.2
-EpidemicEnergyRouter.receiveEnergy = 0.8
+EpidemicEnergyRouter.initialEnergy = 700
+EpidemicEnergyRouter.scanEnergy = 0.1
+EpidemicEnergyRouter.transmitEnergy = 7.0
+EpidemicEnergyRouter.receiveEnergy = 1.5
 
 ## Event generators
 Events.nrof = 2
@@ -39,7 +39,7 @@ Events1.class = ExternalEventsQueue
 Events1.filePath = Haggle3-Infocom5.csv
 
 Events2.class = MessageEventGenerator
-Events2.interval = 1160, 1240
+Events2.interval = 1400, 1500
 Events2.size = 250k, 300k
 Events2.hosts = 0, 40
 Events2.prefix = M

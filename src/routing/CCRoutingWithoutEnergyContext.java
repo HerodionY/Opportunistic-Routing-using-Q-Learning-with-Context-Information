@@ -17,6 +17,11 @@ public class CCRoutingWithoutEnergyContext extends QLearningRouterWithoutEnergyC
     private static final String GAMMA_P_S = "encounterDecayGamma";
     private static final String OMEGA_Q_S = "qAgingOmega";
 
+    private static final String INITIAL_ENERGY_S = "initialEnergy";
+    private static final String SCAN_ENERGY_S = "scanEnergy";
+    private static final String TRANSMIT_ENERGY_S = "transmitEnergy";
+    private static final String RECEIVE_ENERGY_S = "receiveEnergy";
+
     private static final double P_INIT = 0.75;
     private static final double BETA = 0.25;
     private static final int SEC_IN_TU = 30;
@@ -39,6 +44,16 @@ public class CCRoutingWithoutEnergyContext extends QLearningRouterWithoutEnergyC
     private double lastUpdateTime = 0.0;
 
     private List<Connection> candidateReceiver;
+
+    private double maxEnergy;
+    private double currentEnergy;
+    private double scanEnergy;
+    private double transmitEnergy;
+    private double receiveEnergy;
+    private double initialEnergyConfig;
+    private double lastScanEnergyUpdate = 0.0;
+    private double lastEnergyUpdate = 0.0;
+    private double cachedScanInterval = 120.0;
 
     public CCRoutingWithoutEnergyContext(Settings s) {
         super(s);
@@ -76,11 +91,21 @@ public class CCRoutingWithoutEnergyContext extends QLearningRouterWithoutEnergyC
 
         this.currentEpsilon = this.epsilonStart;
 
+        this.initialEnergyConfig = cc.getDouble(INITIAL_ENERGY_S);
+        this.scanEnergy = cc.getDouble(SCAN_ENERGY_S);
+        this.transmitEnergy = cc.getDouble(TRANSMIT_ENERGY_S);
+        this.receiveEnergy = cc.getDouble(RECEIVE_ENERGY_S);
+
+        this.maxEnergy = initialEnergyConfig;
+        this.currentEnergy = initialEnergyConfig;
+
+        this.cachedScanInterval = readScanInterval();
+
         initPreds();
         initLocal();
     }
 
-    protected CCRoutingWithoutEnergyContext(CCRouting r) {
+    protected CCRoutingWithoutEnergyContext(CCRoutingWithoutEnergyContext r) {
         super(r);
 
         this.baseDiscountGamma = r.baseDiscountGamma;
@@ -94,6 +119,18 @@ public class CCRoutingWithoutEnergyContext extends QLearningRouterWithoutEnergyC
         this.simulationTotalTime = r.simulationTotalTime;
         this.currentEpsilon = r.epsilonStart;
 
+        this.initialEnergyConfig = r.initialEnergyConfig;
+        this.scanEnergy = r.scanEnergy;
+        this.transmitEnergy = r.transmitEnergy;
+        this.receiveEnergy = r.receiveEnergy;
+        this.cachedScanInterval = r.cachedScanInterval;
+
+        this.maxEnergy = -1.0;
+        this.currentEnergy = -1.0;
+
+        this.lastScanEnergyUpdate = 0.0;
+        this.lastEnergyUpdate = 0.0;
+
         initPreds();
         initLocal();
     }
@@ -105,6 +142,102 @@ public class CCRoutingWithoutEnergyContext extends QLearningRouterWithoutEnergyC
 
     private void initLocal() {
         this.candidateReceiver = new ArrayList<>();
+    }
+
+    private double readScanInterval() {
+        try {
+            Settings iface = new Settings("btInterface");
+            if (iface.contains("scanInterval")) {
+                return iface.getDouble("scanInterval");
+            }
+        } catch (Exception e) {
+            // ignore
+        }
+        return 120.0;
+    }
+
+    @Override
+    public void init(DTNHost host, List<MessageListener> mListeners) {
+        super.init(host, mListeners);
+
+        if (maxEnergy < 0) {
+            double minEnergy = Math.max(0, initialEnergyConfig - 200.0);
+            Random nodeRng = new Random(host.getAddress() + 12345L);
+            this.maxEnergy = minEnergy + nodeRng.nextDouble() * (initialEnergyConfig - minEnergy);
+            this.currentEnergy = this.maxEnergy;
+        }
+    }
+
+    public boolean isDead() {
+        return currentEnergy <= 0;
+    }
+
+    public double getCurrentEnergy() {
+        return currentEnergy;
+    }
+
+    public double getMaxEnergy() {
+        return maxEnergy;
+    }
+
+    public double getEnergyRatio() {
+        return maxEnergy > 0 ? currentEnergy / maxEnergy : 1.0;
+    }
+
+    private void consumeScanEnergy() {
+        if (cachedScanInterval <= 0) {
+            return;
+        }
+
+        double now = SimClock.getTime();
+        while (now >= lastScanEnergyUpdate + cachedScanInterval) {
+            currentEnergy = Math.max(0.0, currentEnergy - scanEnergy);
+            lastScanEnergyUpdate += cachedScanInterval;
+        }
+    }
+
+    private void consumeTransferEnergy() {
+        double now = SimClock.getTime();
+        double timeDiff = now - lastEnergyUpdate;
+
+        if (timeDiff <= 0) {
+            lastEnergyUpdate = now;
+            return;
+        }
+
+        int numTransmitting = 0;
+        int numReceiving = 0;
+
+        for (Connection con : getConnections()) {
+            if (!con.isUp())
+                continue;
+            Message transferringMsg = con.getMessage();
+            if (transferringMsg == null)
+                continue;
+
+            if (con.isInitiator(getHost())) {
+                numTransmitting++;
+            } else {
+                numReceiving++;
+            }
+        }
+
+        if (numTransmitting > 0) {
+            currentEnergy = Math.max(0.0, currentEnergy - transmitEnergy * timeDiff * numTransmitting);
+        }
+        if (numReceiving > 0) {
+            currentEnergy = Math.max(0.0, currentEnergy - receiveEnergy * timeDiff * numReceiving);
+        }
+
+        lastEnergyUpdate = now;
+    }
+
+    @Override
+    protected int checkReceiving(Message m) {
+        if (isDead()) {
+            return DENIED_UNSPECIFIED;
+        }
+        return super.checkReceiving(m);
     }
 
     private double calculateCurrentEpsilon() {
@@ -143,7 +276,7 @@ public class CCRoutingWithoutEnergyContext extends QLearningRouterWithoutEnergyC
         preds.put(other, oldVal + (1.0 - oldVal) * P_INIT);
     }
 
-    private void updateTransitivity(DTNHost nodeB, CCRouting routerB) {
+    private void updateTransitivity(DTNHost nodeB, CCRoutingWithoutEnergyContext routerB) {
         ageDeliveryPreds();
         routerB.ageDeliveryPreds();
 
@@ -202,13 +335,13 @@ public class CCRoutingWithoutEnergyContext extends QLearningRouterWithoutEnergyC
 
     private double getEncounterProbToward(DTNHost relay, DTNHost destination) {
         MessageRouter r = relay.getRouter();
-        if (!(r instanceof CCRouting)) {
+        if (!(r instanceof CCRoutingWithoutEnergyContext)) {
             return 0.0;
         }
-        return ((CCRouting) r).getPredFor(destination);
+        return ((CCRoutingWithoutEnergyContext) r).getPredFor(destination);
     }
 
-    private void updateQTableOnContact(DTNHost other, CCRouting otherRouter) {
+    private void updateQTableOnContact(DTNHost other, CCRoutingWithoutEnergyContext otherRouter) {
         ageQTable(SEC_IN_TU);
 
         otherRouter.ageQTable(SEC_IN_TU);
@@ -245,11 +378,11 @@ public class CCRoutingWithoutEnergyContext extends QLearningRouterWithoutEnergyC
 
         DTNHost other = con.getOtherNode(getHost());
 
-        if (!(other.getRouter() instanceof CCRouting)) {
+        if (!(other.getRouter() instanceof CCRoutingWithoutEnergyContext)) {
             return;
         }
 
-        CCRouting otherRouter = (CCRouting) other.getRouter();
+        CCRoutingWithoutEnergyContext otherRouter = (CCRoutingWithoutEnergyContext) other.getRouter();
 
         if (con.isUp()) {
 
@@ -271,6 +404,9 @@ public class CCRoutingWithoutEnergyContext extends QLearningRouterWithoutEnergyC
     @Override
     public void update() {
         super.update();
+
+        consumeScanEnergy();
+        consumeTransferEnergy();
 
         if (isTransferring() || !canStartTransfer()) {
             return;
@@ -308,11 +444,11 @@ public class CCRoutingWithoutEnergyContext extends QLearningRouterWithoutEnergyC
 
             DTNHost other = con.getOtherNode(getHost());
 
-            if (!(other.getRouter() instanceof CCRouting)) {
+            if (!(other.getRouter() instanceof CCRoutingWithoutEnergyContext)) {
                 continue;
             }
 
-            CCRouting otherRouter = (CCRouting) other.getRouter();
+            CCRoutingWithoutEnergyContext otherRouter = (CCRoutingWithoutEnergyContext) other.getRouter();
 
             if (otherRouter.isTransferring()) {
                 continue;
@@ -367,8 +503,8 @@ public class CCRoutingWithoutEnergyContext extends QLearningRouterWithoutEnergyC
     }
 
     @Override
-    public CCRouting replicate() {
-        return new CCRouting(this);
+    public CCRoutingWithoutEnergyContext replicate() {
+        return new CCRoutingWithoutEnergyContext(this);
     }
 
     public double getCurrentEpsilon() {
@@ -381,7 +517,11 @@ public class CCRoutingWithoutEnergyContext extends QLearningRouterWithoutEnergyC
 
     @Override
     public String toString() {
-        return super.toString() + String.format(" [ε=%.3f, preds=%d, %s]",
-                currentEpsilon, preds.size(), getQTableStats());
+        return super.toString() + String.format(
+                " [ε=%.3f, E=%.0f/%.0f(%.0f%%), preds=%d, %s]",
+                currentEpsilon,
+                currentEnergy, maxEnergy, getEnergyRatio() * 100,
+                preds.size(),
+                getQTableStats());
     }
 }

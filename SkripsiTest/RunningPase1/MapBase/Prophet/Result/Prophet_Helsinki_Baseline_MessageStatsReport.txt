@@ -1,0 +1,20 @@
+Message stats for scenario Prophet_Helsinki_Baseline
+sim_time: 43200.1000
+created: 1424
+started: 283902
+relayed: 223576
+aborted: 60305
+dropped: 211792
+removed: 0
+delivered: 822
+delivery_prob: 0.5772
+response_prob: 0.0000
+overhead_ratio: 270.9903
+latency_avg: 2885.8522
+latency_med: 2286.5000
+hopcount_avg: 2.7409
+hopcount_med: 2
+buffertime_avg: 2012.9210
+buffertime_med: 1760.4000
+rtt_avg: NaN
+rtt_med: NaN

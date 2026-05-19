@@ -1,11 +1,11 @@
 Performance Report for scenario ORQLCI_Haggle_Infocom5_Final
 Simulation time: 274883.0000
 
-Delivery Ratio: 0.8333
-Overhead Ratio: 16.0343
-Average Latency: 36839.7886
+Delivery Ratio: 0.8286
+Overhead Ratio: 16.1494
+Average Latency: 36882.9425
 
 Router used: CCRouting
 Created Messages: 210
-Relayed Messages: 2981
-Delivered Messages: 175
+Relayed Messages: 2984
+Delivered Messages: 174

@@ -43,7 +43,7 @@ def plot_comparison(protocols, delivery_data, overhead_data, latency_data, drop_
     # Konfigurasi plot
     fig, axs = plt.subplots(2, 2, figsize=(14, 10))
     fig.suptitle(
-        "Perbandingan Evaluasi Kinerja",
+        "Perbandingan Evaluasi Kinerja (Helsinki MapBase)",
         fontsize=16,
         fontweight="bold",
     )
@@ -105,7 +105,7 @@ def plot_comparison(protocols, delivery_data, overhead_data, latency_data, drop_
     plt.tight_layout(rect=[0, 0.03, 1, 0.95])
 
     # Simpan hasil plot
-    output_filename = "reports_skripsi/chart/Helsinki_Chart.png"
+    output_filename = "SkripsiTest/RunningPase1/MapBase/charts/routing_comparison_Helsinki_chart.png"
     output_directory = os.path.dirname(output_filename)
     if not os.path.exists(output_directory):
         os.makedirs(output_directory)
@@ -125,9 +125,9 @@ if __name__ == "__main__":
     # }
 
     report_files = {
-        "ORQLCI": "hasil_skripsi/test_1/Helsinki/ORQLCI_ShortestMap_Optimized_MessageStatsReport.txt",
-        "Epidemic": "hasil_skripsi/test_1/Helsinki/Epidemic_Helsinki_Baseline_MessageStatsReport.txt",
-        "Prophet": "hasil_skripsi/test_1/Helsinki/Prophet_Helsinki_Baseline_MessageStatsReport.txt",
+        "ORQLCI": "SkripsiTest/RunningPase1/MapBase/ORQLCI/Result/ORQLCI_ShortestMap_Optimized_MessageStatsReport.txt",
+        "Epidemic": "SkripsiTest/RunningPase1/MapBase/Epidemic/Result/Epidemic_Helsinki_Baseline_MessageStatsReport.txt",
+        "Prophet": "SkripsiTest/RunningPase1/MapBase/Prophet/Result/Prophet_Helsinki_Baseline_MessageStatsReport.txt",
     }
 
     protocols = list(report_files.keys())

@@ -20,7 +20,7 @@ Group.waitTime = 0, 120
 Group.nrofInterfaces = 1
 Group.interface1 = btInterface
 Group.speed = 0.5, 1.5
-Group.msgTtl = 600
+Group.msgTtl = 300
 
 Group1.groupID = p
 Group1.nrofHosts = 64
@@ -85,11 +85,13 @@ MapBasedMovement.mapFile2 = data/main_roads.wkt
 MapBasedMovement.mapFile3 = data/pedestrian_paths.wkt
 MapBasedMovement.mapFile4 = data/shops.wkt
 
-Report.nrofReports = 2
+Report.nrofReports = 3
 Report.warmup = 1000
-Report.reportDir = hasil_skripsi/test_1/Helsinki/
+Report.reportDir = SkripsiTest/RunningPase1/MapBase/ORQLCI/test
 Report.report1 = MessageStatsReport
 Report.report2 = ContactTimesReport
+Report.report3 = MessageStatsTimeReport
+Report.report3.interval = 3600
 
 Optimization.cellSizeMult = 5
 Optimization.randomizeUpdateOrder = true

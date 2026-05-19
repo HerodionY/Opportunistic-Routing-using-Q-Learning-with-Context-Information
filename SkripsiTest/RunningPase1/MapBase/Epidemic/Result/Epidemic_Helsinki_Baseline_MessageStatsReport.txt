@@ -1,0 +1,20 @@
+Message stats for scenario Epidemic_Helsinki_Baseline
+sim_time: 43200.1000
+created: 1424
+started: 286212
+relayed: 226488
+aborted: 59702
+dropped: 213641
+removed: 0
+delivered: 956
+delivery_prob: 0.6713
+response_prob: 0.0000
+overhead_ratio: 235.9121
+latency_avg: 3484.5676
+latency_med: 2912.7000
+hopcount_avg: 3.2521
+hopcount_med: 3
+buffertime_avg: 2117.2603
+buffertime_med: 1968.7000
+rtt_avg: NaN
+rtt_med: NaN

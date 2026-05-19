@@ -119,7 +119,7 @@ def plot_time_series(report_files_per_protocol):
     axs[1, 1].legend()
 
     plt.tight_layout(rect=[0, 0.03, 1, 0.95])
-    output_filename = "reports/chart/routing_comparison_time_chart.png"
+    output_filename = "SkripsiTest/RunningPase1/Haggle/charts/routing_comparison_Haggle_chart.png"
     plt.savefig(output_filename, dpi=300)
     print(
         f"\n✅ Grafik linier berhasil di-generate dan disimpan sebagai '{os.path.abspath(output_filename)}'"
@@ -133,9 +133,9 @@ if __name__ == "__main__":
 
     # Isi array di bawah ini dengan nama file report hasil generate MessageStatsTimeReport
     report_files = {
-        "ORQLCI (State-Aware)": "reports/ORQLCI_Final_StateAware/ORQLCI_StateAware_Replication_MessageStatsTimeReport.txt",
-        "Epidemic": "reports/Epidemic_Final_StateAware/Epidemic_StateAware_Replication_MessageStatsTimeReport.txt",
-        "Prophet": "reports/Prophet_Final_StateAware/Prophet_StateAware_Replication_MessageStatsTimeReport.txt",
+        "ORQLCI (State-Aware)": "SkripsiTest/RunningPase1/Haggle/ORQLCI/Result/ORQLCI_Haggle_Infocom5_Final_MessageStatsTimeReport.txt",
+        "Epidemic": "SkripsiTest/RunningPase1/Haggle/Epidemic/Result/Epidemic_Haggle_Infocom5_Baseline_MessageStatsReport.txt",
+        "Prophet": "SkripsiTest/RunningPase1/Haggle/Prophet/Result/Prophet_Haggle_Infocom5_Baseline_MessageStatsReport.txt",
     }
 
     plot_time_series(report_files)

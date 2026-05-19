@@ -1,0 +1,11 @@
+
+=== LAPORAN AKHIR ===
+
+--- Stats Periodik pada 43200.10 ---
+Created: 1424
+Delivered: 1205
+Delivery_Prob: 0.8462
+Overhead_Ratio: 50.5303
+Latency_Avg: 5302.9014
+HopCount_Avg: 2.1112
+-------------------------------

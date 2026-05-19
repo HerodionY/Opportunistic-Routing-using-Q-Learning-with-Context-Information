@@ -1,10 +1,10 @@
 #
-# CCRouting paper replication baseline
+# CCRouting paper replication baseline ttl300
 # Based on Bench_CCRouting.txt but with message lifetime = 300 seconds (5 minutes).
 #
 
 ## Scenario settings
-Scenario.name = ORQLCI_ShortestMap_PaperReplication
+Scenario.name = ORQLCI_ShortestMap_PaperConfiguration
 Scenario.simulateConnections = true
 Scenario.updateInterval = 0.1
 Scenario.endTime = 43200
@@ -25,7 +25,7 @@ Group.nrofInterfaces = 1
 Group.interface1 = btInterface
 Group.speed = 0.5, 1.5
 # The ONE uses minutes for msgTtl; 5 minutes == 300 seconds.
-Group.msgTtl = 5
+Group.msgTtl = 60
 
 # --- NODE DISTRIBUTIONS (Total 200) ---
 Group1.groupID = p
@@ -80,7 +80,7 @@ MapBasedMovement.mapFile4 = data/shops.wkt
 ## Reports
 Report.nrofReports = 2
 Report.warmup = 1000
-Report.reportDir = testing/ORQLCI_ShortestMap_PaperReplication/1/
+Report.reportDir = SkripsiTest/RunningPase1/MapBase/ORQLCI/TTL5Menit
 Report.report1 = MessageStatsReport
 Report.report2 = ContactTimesReport
 

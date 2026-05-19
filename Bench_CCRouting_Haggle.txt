@@ -68,7 +68,7 @@ MovementModel.worldSize = 100, 100
 ## Reports
 Report.nrofReports = 4
 Report.warmup = 1
-Report.reportDir = hasil_skripsi/test_1/Haggle/
+Report.reportDir = SkripsiTest/RunningPase1/Haggle/ORQLCI/Result
 Report.report1 = MessageStatsReport
 Report.report2 = PerformanceReport
 Report.report3 = MessageStatsTimeReport

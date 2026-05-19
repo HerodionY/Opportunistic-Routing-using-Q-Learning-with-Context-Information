@@ -73,7 +73,7 @@ MapBasedMovement.mapFile4 = data/shops.wkt
 Report.nrofReports = 4
 Report.warmup = 1000
 # Directory khusus untuk hasil revisi
-Report.reportDir = testing/Epidemic_ShortestMap/1/custom/
+Report.reportDir = SkripsiTest/RunningPase1/MapBase/Epidemic/Result
 Report.report1 = MessageStatsReport
 Report.report2 = ContactTimesReport
 Report.report3 = PerformanceReport

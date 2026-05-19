@@ -35,7 +35,7 @@ Group.waitTime = 0, 120
 Group.nrofInterfaces = 1
 Group.interface1 = btInterface
 Group.speed = 0.5, 1.5
-Group.msgTtl = 600
+Group.msgTtl = 300
 
 # --- NODE DISTRIBUTIONS (Total 200, identik dengan ORQLCI) ---
 Group1.groupID = p
@@ -103,7 +103,7 @@ MapBasedMovement.mapFile4 = data/shops.wkt
 ## Reports
 Report.nrofReports = 1
 Report.warmup = 1000
-Report.reportDir = hasil_skripsi/test_1/Helsinki/
+Report.reportDir = SkripsiTest/RunningPase1/MapBase/Prophet/Result
 Report.report1 = MessageStatsReport
 
 ## Optimization

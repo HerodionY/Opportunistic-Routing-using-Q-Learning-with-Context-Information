@@ -16,19 +16,19 @@ import numpy as np
 # CONFIG
 # =============================================================================
 
-REPORT_DIR = "trial/1/helsinki/1/"
-SIM_DURATION = 86400
-TOTAL_NODES = 200
+REPORT_DIR = "trial/1/haggle/"
+SIM_DURATION = 274883
+TOTAL_NODES = 41
 
 FILES = {
     "ORQLCI": os.path.join(
-        REPORT_DIR, "ORQLCI_ShortestMap_Optimized_NodeDeathReport.txt"
+        REPORT_DIR, "ORQLCI_Haggle_Infocom5_Final_NodeDeathReport.txt"
     ),
     "Epidemic": os.path.join(
-        REPORT_DIR, "Epidemic_Helsinki_EnergyAware_NodeDeathReport.txt"
+        REPORT_DIR, "Epidemic_Haggle_Infocom5_Baseline_NodeDeathReport.txt"
     ),
     "Prophet": os.path.join(
-        REPORT_DIR, "Prophet_Helsinki_EnergyAware_NodeDeathReport.txt"
+        REPORT_DIR, "Prophet_Haggle_Infocom5_Baseline_NodeDeathReport.txt"
     ),
 }
 

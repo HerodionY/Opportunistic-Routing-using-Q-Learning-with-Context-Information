@@ -50,7 +50,6 @@ public abstract class QLearningRouter extends ActiveRouter {
 		lastQUpdateTimes = new HashMap<>();
 	}
 
-
 	private void ensureQEntry(int destAddr, int actionAddr) {
 		qvalues.putIfAbsent(destAddr, new HashMap<>());
 		lastQUpdateTimes.putIfAbsent(destAddr, new HashMap<>());
@@ -288,7 +287,6 @@ public abstract class QLearningRouter extends ActiveRouter {
 			}
 		}
 	}
-
 
 	@Override
 	public boolean createNewMessage(Message msg) {

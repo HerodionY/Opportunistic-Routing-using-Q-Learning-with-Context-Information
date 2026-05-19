@@ -14,18 +14,15 @@ Scenario.nrofHostGroups = 1
 
 Group.movementModel = StationaryMovement
 Group.router = CCRouting
-## [HAGGLE-SPECIFIC] bufferSize=10M, msgTtl=2880 — standar Haggle
 Group.bufferSize = 10M
 Group.nrofInterfaces = 1
 Group.interface1 = btInterface
 Group.msgTtl = 2880
 
-## Node distribution — standar Haggle Infocom5 (41 node)
 Group1.groupID = P
 Group1.nrofHosts = 41
 Group1.nodeLocation = 10, 10
 
-## CCRouting router-specific params (boleh beda — ini algoritma ORQLCI)
 CCRouting.updateInterval = 300
 CCRouting.baseDiscountGamma = 0.6
 CCRouting.learningCoeff = 0.8
@@ -33,8 +30,6 @@ CCRouting.epsilonStart = 1.0
 CCRouting.epsilonEnd = 0.05
 CCRouting.epsilonDecayType = exponential
 CCRouting.simulationTotalTime = 274883
-## Perlambat decay untuk sparse trace (kontak bisa berselang berjam-jam)
-## 0.9999^(3600/300) = ~0.9988 per jam — konservatif dan tepat untuk real trace 3 hari
 CCRouting.encounterDecayGamma = 0.9999
 CCRouting.qAgingOmega = 0.9999
 
@@ -43,14 +38,11 @@ CCRouting.scanEnergy = 0.12
 CCRouting.transmitEnergy = 2.2
 CCRouting.receiveEnergy = 0.8
 
-## Event generators
 Events.nrof = 2
 
-## Event 1: Load Haggle real trace
 Events1.class = ExternalEventsQueue
 Events1.filePath = Haggle3-Infocom5.csv
 
-## Event 2: Message Generator — [HAGGLE-SPECIFIC] standar Haggle, identik antar semua router
 Events2.class = MessageEventGenerator
 Events2.interval = 1160, 1240
 Events2.size = 250k, 300k

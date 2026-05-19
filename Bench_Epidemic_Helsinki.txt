@@ -84,7 +84,7 @@ MapBasedMovement.mapFile4 = data/shops.wkt
 
 Report.nrofReports = 3
 Report.warmup = 1000
-Report.reportDir = hasil_skripsi/test_1/Helsinki/energy/test3/
+Report.reportDir = trial/1/helsinki/
 Report.report1 = MessageStatsReport
 Report.report2 = ContactTimesReport
 Report.report3 = NodeDeathReport

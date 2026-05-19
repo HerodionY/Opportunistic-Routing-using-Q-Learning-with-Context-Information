@@ -20,8 +20,6 @@ public class NodeDeathReport extends Report implements UpdateListener {
 
     private final Set<Integer> deadNodes = new HashSet<>();
 
-    private final Set<Integer> hardGateNodes = new HashSet<>();
-
     public NodeDeathReport() {
         super();
         int g = DEFAULT_GRANULARITY;
@@ -32,7 +30,7 @@ public class NodeDeathReport extends Report implements UpdateListener {
         this.granularity = g;
 
         init();
-        write("# Node Death / Hard-Gate Report");
+        write("# Node Death Report");
         write("# sim_time\tnode_addr\trouter_type\tmax_energy\tenergy_ratio\tevent");
     }
 
@@ -70,12 +68,6 @@ public class NodeDeathReport extends Report implements UpdateListener {
             return;
 
         double ratio = currE / maxE;
-
-        if (!hardGateNodes.contains(addr) && r.isInHardGate()) {
-            hardGateNodes.add(addr);
-            write(String.format("%.1f\t%d\tORQLCI\t%.2f\t%.4f\tHARD_GATE",
-                    now, addr, maxE, ratio));
-        }
 
         if (!deadNodes.contains(addr) && currE <= 0) {
             deadNodes.add(addr);
@@ -123,7 +115,6 @@ public class NodeDeathReport extends Report implements UpdateListener {
         write("");
         write("# ===== SUMMARY =====");
         write("# total_dead_nodes: " + deadNodes.size());
-        write("# total_hard_gate_nodes (ORQLCI only): " + hardGateNodes.size());
         super.done();
     }
 }

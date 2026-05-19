@@ -1,5 +1,5 @@
 ## Scenario settings
-Scenario.name = Prophet_Helsinki_EnergyAware
+Scenario.name = Epidemic_Helsinki_EnergyAware
 Scenario.simulateConnections = true
 Scenario.updateInterval = 0.1
 Scenario.endTime = 86400
@@ -14,7 +14,7 @@ btInterface.scanInterval = 120
 Scenario.nrofHostGroups = 6
 
 Group.movementModel = ShortestPathMapBasedMovement
-Group.router = ProphetEnergyRouter
+Group.router = EpidemicEnergyRouter
 Group.bufferSize = 50M
 Group.waitTime = 0, 120
 Group.nrofInterfaces = 1
@@ -59,15 +59,15 @@ Group6.speed = 7, 10
 Group6.bufferSize = 50M
 Group6.nrofHosts = 2
 
-## PRoPHET router-specific params (satu-satunya yang boleh beda)
-ProphetRouter.secondsInTimeUnit = 30
-ProphetRouter.beta = 0.25
-
-## [SHARED - identik dengan CCRouting & Epidemic]
-ProphetEnergyRouter.initialEnergy = 2000
-ProphetEnergyRouter.scanEnergy = 0.06
-ProphetEnergyRouter.transmitEnergy = 1.8
-ProphetEnergyRouter.receiveEnergy = 0.4
+## [SHARED — identik dengan CCRouting & Prophet Helsinki]
+## Epidemic flooding → durasi transfer aktif ~3.7x lebih panjang dari CCRouting
+## Dengan transmitEnergy=0.9/s dan initialEnergy=3500:
+##   Epidemic drain ≈ 4500s × 0.9 = 4050 unit → melewati budget → banyak dead nodes
+##   Ini natural dari algoritma flooding, bukan dari manipulasi config
+EpidemicEnergyRouter.initialEnergy = 2200
+EpidemicEnergyRouter.scanEnergy = 0.06
+EpidemicEnergyRouter.transmitEnergy = 1.0
+EpidemicEnergyRouter.receiveEnergy = 0.6
 
 Events.nrof = 1
 Events1.class = MessageEventGenerator
@@ -88,7 +88,7 @@ MapBasedMovement.mapFile4 = data/shops.wkt
 
 Report.nrofReports = 3
 Report.warmup = 1000
-Report.reportDir = trial/1/helsinki/
+Report.reportDir = trial/1/helsinki/1/
 Report.report1 = MessageStatsReport
 Report.report2 = ContactTimesReport
 Report.report3 = NodeDeathReport

@@ -18,9 +18,6 @@ public class CCRouting extends QLearningRouter {
     private static final String SCAN_ENERGY_S = "scanEnergy";
     private static final String TRANSMIT_ENERGY_S = "transmitEnergy";
     private static final String RECEIVE_ENERGY_S = "receiveEnergy";
-    private static final String HARD_THRESHOLD_S = "hardEnergyThreshold";
-    private static final String SOFT_THRESHOLD_S = "softEnergyThreshold";
-    private static final String SOFT_UPPER_S = "softEnergyUpperBound";
 
     private static final double P_INIT = 0.75;
     private static final double BETA = 0.25;
@@ -49,9 +46,6 @@ public class CCRouting extends QLearningRouter {
     private double scanEnergy;
     private double transmitEnergy;
     private double receiveEnergy;
-    private double hardEnergyThreshold;
-    private double softEnergyThreshold;
-    private double softEnergyUpper;
     private double initialEnergyConfig;
     private double lastScanEnergyUpdate = 0.0;
     private double lastEnergyUpdate = 0.0;
@@ -81,9 +75,6 @@ public class CCRouting extends QLearningRouter {
         this.scanEnergy = cc.getDouble(SCAN_ENERGY_S);
         this.transmitEnergy = cc.getDouble(TRANSMIT_ENERGY_S);
         this.receiveEnergy = cc.getDouble(RECEIVE_ENERGY_S);
-        this.hardEnergyThreshold = cc.getDouble(HARD_THRESHOLD_S);
-        this.softEnergyThreshold = cc.getDouble(SOFT_THRESHOLD_S);
-        this.softEnergyUpper = cc.getDouble(SOFT_UPPER_S);
 
         this.maxEnergy = initialEnergyConfig;
         this.currentEnergy = initialEnergyConfig;
@@ -112,9 +103,6 @@ public class CCRouting extends QLearningRouter {
         this.scanEnergy = r.scanEnergy;
         this.transmitEnergy = r.transmitEnergy;
         this.receiveEnergy = r.receiveEnergy;
-        this.hardEnergyThreshold = r.hardEnergyThreshold;
-        this.softEnergyThreshold = r.softEnergyThreshold;
-        this.softEnergyUpper = r.softEnergyUpper;
         this.cachedScanInterval = r.cachedScanInterval;
 
         this.maxEnergy = -1.0;
@@ -166,22 +154,11 @@ public class CCRouting extends QLearningRouter {
         if (maxEnergy <= 0) {
             throw new IllegalStateException("maxEnergy must be > 0");
         }
-
-        double ratio = currentEnergy / maxEnergy;
-
-        if (ratio > softEnergyUpper) {
-            return 1.0;
-        } else if (ratio <= softEnergyThreshold) {
-            return 0.0;
-        } else {
-            return (ratio - softEnergyThreshold) / (softEnergyUpper - softEnergyThreshold);
-        }
+        return currentEnergy / maxEnergy;
     }
 
-    public boolean isInHardGate() {
-        if (maxEnergy <= 0)
-            return false;
-        return (currentEnergy / maxEnergy) <= hardEnergyThreshold;
+    public boolean isDead() {
+        return currentEnergy <= 0;
     }
 
     private double getEnergyFactorOf(DTNHost host) {
@@ -243,7 +220,7 @@ public class CCRouting extends QLearningRouter {
 
     @Override
     protected int checkReceiving(Message m) {
-        if (isInHardGate()) {
+        if (isDead()) {
             return DENIED_UNSPECIFIED;
         }
         return super.checkReceiving(m);
@@ -424,7 +401,7 @@ public class CCRouting extends QLearningRouter {
             CCRouting otherRouter = (CCRouting) other.getRouter();
             if (otherRouter.isTransferring())
                 continue;
-            if (otherRouter.isInHardGate())
+            if (otherRouter.isDead())
                 continue;
 
             for (Message m : msgCollection) {

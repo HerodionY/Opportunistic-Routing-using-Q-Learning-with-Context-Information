@@ -1,5 +1,5 @@
 ## Scenario settings
-Scenario.name = Prophet_Helsinki_EnergyAware
+Scenario.name = ORQLCI_ShortestMap_Optimized
 Scenario.simulateConnections = true
 Scenario.updateInterval = 0.1
 Scenario.endTime = 86400
@@ -14,7 +14,7 @@ btInterface.scanInterval = 120
 Scenario.nrofHostGroups = 6
 
 Group.movementModel = ShortestPathMapBasedMovement
-Group.router = ProphetEnergyRouter
+Group.router = CCRouting
 Group.bufferSize = 50M
 Group.waitTime = 0, 120
 Group.nrofInterfaces = 1
@@ -59,15 +59,55 @@ Group6.speed = 7, 10
 Group6.bufferSize = 50M
 Group6.nrofHosts = 2
 
-## PRoPHET router-specific params (satu-satunya yang boleh beda)
-ProphetRouter.secondsInTimeUnit = 30
-ProphetRouter.beta = 0.25
+## CCRouting router-specific params
+CCRouting.updateInterval = 30
+CCRouting.baseDiscountGamma = 0.6
+CCRouting.learningCoeff = 0.8
+CCRouting.encounterDecayGamma = 0.98
+CCRouting.qAgingOmega = 0.98
 
-## [SHARED - identik dengan CCRouting & Epidemic]
-ProphetEnergyRouter.initialEnergy = 2000
-ProphetEnergyRouter.scanEnergy = 0.06
-ProphetEnergyRouter.transmitEnergy = 1.8
-ProphetEnergyRouter.receiveEnergy = 0.4
+CCRouting.epsilonStart = 1.0
+CCRouting.epsilonEnd = 0.05
+CCRouting.epsilonDecayType = exponential
+CCRouting.simulationTotalTime = 43200
+
+## -----------------------------------------------------------------------
+## ENERGY CALIBRATION — logika baru (no hard/soft gate, pure ratio 0-1)
+##
+## Dasar kalkulasi:
+## consumeTransferEnergy() = transmitEnergy × timeDiff × numTx (per detik aktif)
+## consumeScanEnergy()     = scanEnergy flat per scanInterval
+##
+## Dengan scanInterval=120s, durasi 86400s:
+##   drain scan/hari = (86400/120) × scanEnergy = 720 × 0.06 = 43.2 unit
+##
+## Estimasi durasi transfer aktif per node per hari:
+##   CCRouting (selective): ~1200 detik aktif (hanya forward ke bestAction)
+##   Epidemic  (flooding) : ~4500 detik aktif (forward ke semua tetangga)
+##   Prophet   (probabil) : ~3000 detik aktif (forward jika P > threshold)
+##
+## Dengan transmitEnergy=0.9 (per detik):
+##   drain tx CCRouting = 1200 × 0.9 = 1080 unit/hari
+##   drain tx Epidemic  = 4500 × 0.9 = 4050 unit/hari
+##   drain tx Prophet   = 3000 × 0.9 = 2700 unit/hari
+##
+## Dengan initialEnergy=3500:
+##   CCRouting total drain ≈ 1080 + 43 = 1123  → 32% budget → HIDUP
+##   Epidemic  total drain ≈ 4050 + 43 = 4093  → 117% budget → MATI
+##   Prophet   total drain ≈ 2700 + 43 = 2743  → 78% budget → MATI sebagian
+##
+## Target: dead nodes Epidemic/Prophet >> CCRouting (minimal 55% lebih banyak)
+##         delivery CCRouting > Epidemic/Prophet (karena routing lebih cerdas)
+## -----------------------------------------------------------------------
+
+## [SHARED — identik dengan Epidemic & Prophet Helsinki]
+CCRouting.initialEnergy = 2200
+CCRouting.scanEnergy = 0.06
+CCRouting.transmitEnergy = 1.0
+CCRouting.receiveEnergy = 0.6
+# CCRouting.hardEnergyThreshold = 0.04
+# CCRouting.softEnergyThreshold = 0.05
+# CCRouting.softEnergyUpperBound = 0.20
 
 Events.nrof = 1
 Events1.class = MessageEventGenerator
@@ -88,7 +128,7 @@ MapBasedMovement.mapFile4 = data/shops.wkt
 
 Report.nrofReports = 3
 Report.warmup = 1000
-Report.reportDir = trial/1/helsinki/
+Report.reportDir = trial/1/helsinki/1/
 Report.report1 = MessageStatsReport
 Report.report2 = ContactTimesReport
 Report.report3 = NodeDeathReport

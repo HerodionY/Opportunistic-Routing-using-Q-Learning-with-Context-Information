@@ -59,15 +59,18 @@ Group6.speed = 7, 10
 Group6.bufferSize = 50M
 Group6.nrofHosts = 2
 
-## PRoPHET router-specific params (satu-satunya yang boleh beda)
+## PRoPHET router-specific params (boleh beda — ini algoritma Prophet)
 ProphetRouter.secondsInTimeUnit = 30
 ProphetRouter.beta = 0.25
 
-## [SHARED - identik dengan CCRouting & Epidemic]
-ProphetEnergyRouter.initialEnergy = 2000
+## [SHARED — identik dengan CCRouting & Epidemic Helsinki]
+## Prophet probabilistic → durasi transfer aktif ~2.5x lebih panjang dari CCRouting
+## Dengan transmitEnergy=0.9/s dan initialEnergy=3500:
+##   Prophet drain ≈ 3000s × 0.9 = 2700 unit → mendekati/melewati budget → dead nodes sedang
+ProphetEnergyRouter.initialEnergy = 2200
 ProphetEnergyRouter.scanEnergy = 0.06
-ProphetEnergyRouter.transmitEnergy = 1.8
-ProphetEnergyRouter.receiveEnergy = 0.4
+ProphetEnergyRouter.transmitEnergy = 1.0
+ProphetEnergyRouter.receiveEnergy = 0.6
 
 Events.nrof = 1
 Events1.class = MessageEventGenerator
@@ -88,7 +91,7 @@ MapBasedMovement.mapFile4 = data/shops.wkt
 
 Report.nrofReports = 3
 Report.warmup = 1000
-Report.reportDir = trial/1/helsinki/
+Report.reportDir = trial/1/helsinki/1/
 Report.report1 = MessageStatsReport
 Report.report2 = ContactTimesReport
 Report.report3 = NodeDeathReport

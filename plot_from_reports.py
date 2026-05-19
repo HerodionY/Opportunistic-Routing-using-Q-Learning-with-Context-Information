@@ -105,7 +105,7 @@ def plot_comparison(protocols, delivery_data, overhead_data, latency_data, drop_
     plt.tight_layout(rect=[0, 0.03, 1, 0.95])
 
     # Simpan hasil plot
-    output_filename = "hasil_skripsi/test_1/Haggle/test1/Energy_Chart.png"
+    output_filename = "trial/1/helsinki/1/Stat_Chart.png"
     output_directory = os.path.dirname(output_filename)
     if not os.path.exists(output_directory):
         os.makedirs(output_directory)
@@ -125,9 +125,9 @@ if __name__ == "__main__":
     # }
 
     report_files = {
-        "ORQLCI": "hasil_skripsi/test_1/Haggle/test1/ORQLCI_Haggle_Infocom5_Final_MessageStatsReport.txt",
-        "Epidemic": "hasil_skripsi/test_1/Haggle/test1/Epidemic_Haggle_Infocom5_Baseline_MessageStatsReport.txt",
-        "Prophet": "hasil_skripsi/test_1/Haggle/test1/Prophet_Haggle_Infocom5_Baseline_MessageStatsReport.txt",
+        "ORQLCI": "trial/1/helsinki/1/ORQLCI_ShortestMap_Optimized_MessageStatsReport.txt",
+        "Epidemic": "trial/1/helsinki/1/Epidemic_Helsinki_EnergyAware_MessageStatsReport.txt",
+        "Prophet": "trial/1/helsinki/1/Prophet_Helsinki_EnergyAware_MessageStatsReport.txt",
     }
 
     protocols = list(report_files.keys())

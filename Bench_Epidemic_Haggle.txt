@@ -52,7 +52,7 @@ MovementModel.worldSize = 100, 100
 ## Reports
 Report.nrofReports = 2
 Report.warmup = 1
-Report.reportDir = hasil_skripsi/test_1/Haggle/test1/
+Report.reportDir = trial/1/haggle/
 Report.report1 = MessageStatsReport
 Report.report2 = NodeDeathReport
 NodeDeathReport.granularity = 60

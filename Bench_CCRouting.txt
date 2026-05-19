@@ -59,7 +59,6 @@ Group6.speed = 7, 10
 Group6.bufferSize = 50M
 Group6.nrofHosts = 2
 
-## CCRouting-specific parameters
 CCRouting.updateInterval = 30
 CCRouting.baseDiscountGamma = 0.6
 CCRouting.learningCoeff = 0.8
@@ -71,14 +70,10 @@ CCRouting.epsilonEnd = 0.05
 CCRouting.epsilonDecayType = exponential
 CCRouting.simulationTotalTime = 43200
 
-## [SHARED - identik dengan Epidemic & Prophet]
-CCRouting.initialEnergy = 2000
+CCRouting.initialEnergy = 3000
 CCRouting.scanEnergy = 0.06
-CCRouting.transmitEnergy = 1.8
-CCRouting.receiveEnergy = 0.4
-CCRouting.hardEnergyThreshold = 0.04
-CCRouting.softEnergyThreshold = 0.05
-CCRouting.softEnergyUpperBound = 0.20
+CCRouting.transmitEnergy = 1.2
+CCRouting.receiveEnergy = 0.6
 
 Events.nrof = 1
 Events1.class = MessageEventGenerator
@@ -99,7 +94,7 @@ MapBasedMovement.mapFile4 = data/shops.wkt
 
 Report.nrofReports = 3
 Report.warmup = 1000
-Report.reportDir = hasil_skripsi/test_1/Helsinki/energy/test3/
+Report.reportDir = trial/1/helsinki/
 Report.report1 = MessageStatsReport
 Report.report2 = ContactTimesReport
 Report.report3 = NodeDeathReport

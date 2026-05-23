@@ -1,0 +1,68 @@
+## Scenario settings
+Scenario.name = Prophet_Haggle_Infocom5_Baseline
+Scenario.simulateConnections = false
+Scenario.updateInterval = 1
+Scenario.endTime = 274883
+
+## Interface settings
+## [HAGGLE-SPECIFIC] transmitRange=10, scanInterval=120 — standar dataset Haggle/Infocom5
+btInterface.type = SimpleBroadcastInterface
+btInterface.transmitSpeed = 250k
+btInterface.transmitRange = 10
+btInterface.scanInterval = 120
+
+## Group settings
+Scenario.nrofHostGroups = 1
+
+Group.movementModel = StationaryMovement
+Group.router = ProphetEnergyRouter
+## [HAGGLE-SPECIFIC] bufferSize=10M, msgTtl=2880 — standar Haggle
+Group.bufferSize = 10M
+Group.nrofInterfaces = 1
+Group.interface1 = btInterface
+Group.msgTtl = 2880
+
+## Node distribution — standar Haggle Infocom5 (41 node)
+Group1.groupID = P
+Group1.nrofHosts = 41
+Group1.nodeLocation = 10, 10
+
+## PRoPHET router-specific params (boleh beda — ini algoritma Prophet)
+ProphetRouter.secondsInTimeUnit = 30
+ProphetRouter.pInit = 0.75
+ProphetRouter.beta = 0.25
+ProphetRouter.gamma = 0.98
+
+ProphetEnergyRouter.initialEnergy = 700
+ProphetEnergyRouter.scanEnergy = 0.1
+ProphetEnergyRouter.transmitEnergy = 7.0
+ProphetEnergyRouter.receiveEnergy = 1.5
+
+## Event generators
+Events.nrof = 2
+
+Events1.class = ExternalEventsQueue
+Events1.filePath = Haggle3-Infocom5.csv
+
+Events2.class = MessageEventGenerator
+Events2.interval = 1400, 1500
+Events2.size = 250k, 300k
+Events2.hosts = 0, 40
+Events2.prefix = M
+Events2.time = 0, 253283
+
+## Movement model
+MovementModel.rngSeed = 1
+MovementModel.worldSize = 100, 100
+
+## Reports
+Report.nrofReports = 2
+Report.warmup = 1
+Report.reportDir = trial/1/haggle/
+Report.report1 = MessageStatsReport
+Report.report2 = NodeDeathReport
+NodeDeathReport.granularity = 60
+
+## Optimization
+Optimization.cellSizeMult = 5
+Optimization.randomizeUpdateOrder = true

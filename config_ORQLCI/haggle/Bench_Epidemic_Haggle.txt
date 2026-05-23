@@ -1,0 +1,62 @@
+## Scenario settings
+Scenario.name = Epidemic_Haggle_Infocom5_Baseline
+Scenario.simulateConnections = false
+Scenario.updateInterval = 1
+Scenario.endTime = 274883
+
+## Interface settings
+## [HAGGLE-SPECIFIC] transmitRange=10, scanInterval=120 — standar dataset Haggle/Infocom5
+btInterface.type = SimpleBroadcastInterface
+btInterface.transmitSpeed = 250k
+btInterface.transmitRange = 10
+btInterface.scanInterval = 120
+
+## Group settings
+Scenario.nrofHostGroups = 1
+
+Group.movementModel = StationaryMovement
+Group.router = EpidemicEnergyRouter
+## [HAGGLE-SPECIFIC] bufferSize=10M, msgTtl=2880 — standar Haggle
+Group.bufferSize = 10M
+Group.nrofInterfaces = 1
+Group.interface1 = btInterface
+Group.msgTtl = 2880
+
+## Node distribution — standar Haggle Infocom5 (41 node)
+Group1.groupID = P
+Group1.nrofHosts = 41
+Group1.nodeLocation = 10, 10
+
+EpidemicEnergyRouter.initialEnergy = 700
+EpidemicEnergyRouter.scanEnergy = 0.1
+EpidemicEnergyRouter.transmitEnergy = 7.0
+EpidemicEnergyRouter.receiveEnergy = 1.5
+
+## Event generators
+Events.nrof = 2
+
+Events1.class = ExternalEventsQueue
+Events1.filePath = Haggle3-Infocom5.csv
+
+Events2.class = MessageEventGenerator
+Events2.interval = 1400, 1500
+Events2.size = 250k, 300k
+Events2.hosts = 0, 40
+Events2.prefix = M
+Events2.time = 0, 253283
+
+## Movement model
+MovementModel.rngSeed = 1
+MovementModel.worldSize = 100, 100
+
+## Reports
+Report.nrofReports = 2
+Report.warmup = 1
+Report.reportDir = trial/1/haggle/
+Report.report1 = MessageStatsReport
+Report.report2 = NodeDeathReport
+NodeDeathReport.granularity = 60
+
+## Optimization
+Optimization.cellSizeMult = 5
+Optimization.randomizeUpdateOrder = true

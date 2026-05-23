@@ -70,10 +70,10 @@ CCRouting.epsilonEnd = 0.05
 CCRouting.epsilonDecayType = exponential
 CCRouting.simulationTotalTime = 43200
 
-CCRouting.initialEnergy = 2000
+CCRouting.initialEnergy = 2200
 CCRouting.scanEnergy = 0.06
-CCRouting.transmitEnergy = 1.8
-CCRouting.receiveEnergy = 0.4
+CCRouting.transmitEnergy = 1.2
+CCRouting.receiveEnergy = 0.5
 
 Events.nrof = 1
 Events1.class = MessageEventGenerator
@@ -94,7 +94,7 @@ MapBasedMovement.mapFile4 = data/shops.wkt
 
 Report.nrofReports = 3
 Report.warmup = 1000
-Report.reportDir = trial/1/helsinki/v1/withEF/
+Report.reportDir = trial/1/helsinki/v1/withEF/2/
 Report.report1 = MessageStatsReport
 Report.report2 = ContactTimesReport
 Report.report3 = NodeDeathReport

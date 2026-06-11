@@ -102,7 +102,7 @@ def plot_comparison(protocols, delivery_data, overhead_data, latency_data):
 
     plt.tight_layout(rect=[0, 0.03, 1, 0.95])
 
-    output_filename = "trial/1/haggle/1/Stat_Chart_4.png"
+    output_filename = "baru/haggle/Stat_Chart_haggle.png"
     output_directory = os.path.dirname(output_filename)
     if not os.path.exists(output_directory):
         os.makedirs(output_directory)
@@ -117,10 +117,10 @@ if __name__ == "__main__":
     print("=== Skrip Plotting Otomatis dari MessageStatsReport ===")
 
     report_files = {
-        "ORQLCI": "trial/1/haggle/ORQLCI_Haggle_Infocom5_Final_MessageStatsReport.txt",
-        "ORQLCI_Without_EF": "trial/1/haggle/withoutEnergy/ORQLCI_Haggle_Infocom5_Final-without_energy_MessageStatsReport.txt",
-        "Epidemic": "trial/1/haggle/Epidemic_Haggle_Infocom5_Baseline_MessageStatsReport.txt",
-        "Prophet": "trial/1/haggle/Prophet_Haggle_Infocom5_Baseline_MessageStatsReport.txt",
+        "ORQLCI": "baru/haggle/ORQLCI_Haggle_Infocom5_Final_MessageStatsReport.txt",
+        "ORQLCI_Without_EF": "baru/haggle/ORQLCI_Haggle_Infocom5_Final-without_energy_MessageStatsReport.txt",
+        "Epidemic": "baru/haggle/Epidemic_Haggle_Infocom5_Baseline_MessageStatsReport.txt",
+        "Prophet": "baru/haggle/Prophet_Haggle_Infocom5_Baseline_MessageStatsReport.txt",
     }
 
     protocols = list(report_files.keys())

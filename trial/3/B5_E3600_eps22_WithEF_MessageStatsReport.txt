@@ -1,0 +1,20 @@
+Message stats for scenario B5_E3600_eps22_WithEF
+sim_time: 43200.1000
+created: 1424
+started: 26298
+relayed: 20538
+aborted: 5759
+dropped: 10779
+removed: 0
+delivered: 955
+delivery_prob: 0.6706
+response_prob: 0.0000
+overhead_ratio: 20.5058
+latency_avg: 6519.8229
+latency_med: 4739.6000
+hopcount_avg: 1.6314
+hopcount_med: 1
+buffertime_avg: 25645.8563
+buffertime_med: 33993.2000
+rtt_avg: NaN
+rtt_med: NaN

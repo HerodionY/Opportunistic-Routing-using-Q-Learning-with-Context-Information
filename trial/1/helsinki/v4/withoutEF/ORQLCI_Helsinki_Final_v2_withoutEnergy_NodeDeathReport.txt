@@ -1,0 +1,9 @@
+# Node Death Report
+# sim_time	node_addr	router_type	max_energy	energy_ratio	event
+39503.6	110	ORQLCI_NoEnergyCtx	1374.47	0.0000	DEAD
+40044.5	95	ORQLCI_NoEnergyCtx	1375.25	0.0000	DEAD
+42989.4	85	ORQLCI_NoEnergyCtx	1374.92	0.0000	DEAD
+43049.5	116	ORQLCI_NoEnergyCtx	1374.30	0.0000	DEAD
+
+# ===== SUMMARY =====
+# total_dead_nodes: 4

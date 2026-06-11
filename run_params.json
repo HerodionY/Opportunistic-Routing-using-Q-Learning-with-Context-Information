@@ -1,0 +1,77 @@
+[
+  {
+    "iteration": 1,
+    "haggle": {
+      "initialEnergy": 760,
+      "scanEnergy": 0.08,
+      "transmitEnergy": 8.0,
+      "receiveEnergy": 1.7
+    },
+    "helsinki": {
+      "initialEnergy": 900,
+      "scanEnergy": 0.02,
+      "transmitEnergy": 1.5,
+      "receiveEnergy": 0.52
+    }
+  },
+  {
+    "iteration": 2,
+    "haggle": {
+      "initialEnergy": 780,
+      "scanEnergy": 0.07,
+      "transmitEnergy": 8.5,
+      "receiveEnergy": 1.75
+    },
+    "helsinki": {
+      "initialEnergy": 1000,
+      "scanEnergy": 0.02,
+      "transmitEnergy": 1.8,
+      "receiveEnergy": 0.63
+    }
+  },
+  {
+    "iteration": 3,
+    "haggle": {
+      "initialEnergy": 800,
+      "scanEnergy": 0.07,
+      "transmitEnergy": 9.0,
+      "receiveEnergy": 1.8
+    },
+    "helsinki": {
+      "initialEnergy": 1100,
+      "scanEnergy": 0.02,
+      "transmitEnergy": 2.0,
+      "receiveEnergy": 0.7
+    }
+  },
+  {
+    "iteration": 4,
+    "haggle": {
+      "initialEnergy": 800,
+      "scanEnergy": 0.07,
+      "transmitEnergy": 8.0,
+      "receiveEnergy": 1.7
+    },
+    "helsinki": {
+      "initialEnergy": 800,
+      "scanEnergy": 0.02,
+      "transmitEnergy": 1.2,
+      "receiveEnergy": 0.42
+    }
+  },
+  {
+    "iteration": 5,
+    "haggle": {
+      "initialEnergy": 820,
+      "scanEnergy": 0.06,
+      "transmitEnergy": 9.5,
+      "receiveEnergy": 1.9
+    },
+    "helsinki": {
+      "initialEnergy": 1300,
+      "scanEnergy": 0.02,
+      "transmitEnergy": 2.5,
+      "receiveEnergy": 0.87
+    }
+  }
+]

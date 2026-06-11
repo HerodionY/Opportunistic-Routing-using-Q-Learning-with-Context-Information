@@ -1,0 +1,20 @@
+Message stats for scenario ORQLCI_Haggle_Infocom5_Final
+sim_time: 274883.0000
+created: 174
+started: 3602
+relayed: 2612
+aborted: 990
+dropped: 1955
+removed: 0
+delivered: 123
+delivery_prob: 0.7069
+response_prob: 0.0000
+overhead_ratio: 20.2358
+latency_avg: 35511.2195
+latency_med: 29911.0000
+hopcount_avg: 2.3821
+hopcount_med: 2
+buffertime_avg: 129301.4051
+buffertime_med: 144249.0000
+rtt_avg: NaN
+rtt_med: NaN

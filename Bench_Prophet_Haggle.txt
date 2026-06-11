@@ -33,10 +33,10 @@ ProphetRouter.pInit = 0.75
 ProphetRouter.beta = 0.25
 ProphetRouter.gamma = 0.98
 
-ProphetEnergyRouter.initialEnergy = 700
-ProphetEnergyRouter.scanEnergy = 0.1
-ProphetEnergyRouter.transmitEnergy = 7.0
-ProphetEnergyRouter.receiveEnergy = 1.5
+ProphetEnergyRouter.initialEnergy = 1000
+ProphetEnergyRouter.scanEnergy = 0.15
+ProphetEnergyRouter.transmitEnergy = 3.0
+ProphetEnergyRouter.receiveEnergy = 0.5
 
 ## Event generators
 Events.nrof = 2
@@ -58,7 +58,7 @@ MovementModel.worldSize = 100, 100
 ## Reports
 Report.nrofReports = 2
 Report.warmup = 1
-Report.reportDir = trial/1/haggle/
+Report.reportDir = baru/haggle/
 Report.report1 = MessageStatsReport
 Report.report2 = NodeDeathReport
 NodeDeathReport.granularity = 60

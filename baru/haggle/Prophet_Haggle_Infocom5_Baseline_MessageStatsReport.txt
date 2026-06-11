@@ -1,0 +1,20 @@
+Message stats for scenario Prophet_Haggle_Infocom5_Baseline
+sim_time: 274883.0000
+created: 174
+started: 4296
+relayed: 3711
+aborted: 551
+dropped: 2542
+removed: 0
+delivered: 42
+delivery_prob: 0.2414
+response_prob: 0.0000
+overhead_ratio: 87.3571
+latency_avg: 26098.9762
+latency_med: 21635.0000
+hopcount_avg: 3.7381
+hopcount_med: 4
+buffertime_avg: 18181.7061
+buffertime_med: 1513.0000
+rtt_avg: NaN
+rtt_med: NaN

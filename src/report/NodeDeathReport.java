@@ -3,6 +3,7 @@ package report;
 import core.DTNHost;
 import core.UpdateListener;
 import routing.CCRouting;
+import routing.CCRoutingExpert;
 import routing.CCRoutingWithoutEnergyContext;
 import routing.EpidemicEnergyRouter;
 import routing.ProphetEnergyRouter;
@@ -49,7 +50,10 @@ public class NodeDeathReport extends Report implements UpdateListener {
             int addr = host.getAddress();
             Object router = host.getRouter();
 
-            if (router instanceof CCRouting) {
+            if (router instanceof CCRoutingExpert) {
+                checkCCRoutingExpert(host, (CCRoutingExpert) router, addr, now);
+
+            } else if (router instanceof CCRouting) {
                 checkCCRouting(host, (CCRouting) router, addr, now);
 
             } else if (router instanceof CCRoutingWithoutEnergyContext) {
@@ -61,6 +65,22 @@ public class NodeDeathReport extends Report implements UpdateListener {
             } else if (router instanceof ProphetEnergyRouter) {
                 checkGenericDeath(host, (ProphetEnergyRouter) router, addr, now, "Prophet");
             }
+        }
+    }
+
+    private void checkCCRoutingExpert(DTNHost host, CCRoutingExpert r, int addr, double now) {
+        double maxE = r.getMaxEnergy();
+        double currE = r.getCurrentEnergy();
+
+        if (maxE <= 0)
+            return;
+
+        double ratio = currE / maxE;
+
+        if (!deadNodes.contains(addr) && currE <= 0) {
+            deadNodes.add(addr);
+            write(String.format("%.1f\t%d\tORQLCI_Expert\t%.2f\t%.4f\tDEAD",
+                    now, addr, maxE, ratio));
         }
     }
 

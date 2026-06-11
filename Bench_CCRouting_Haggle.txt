@@ -13,8 +13,8 @@ btInterface.scanInterval = 120
 Scenario.nrofHostGroups = 1
 
 Group.movementModel = StationaryMovement
-Group.router = CCRouting
-Group.bufferSize = 10M
+Group.router = CCRoutingExpert
+Group.bufferSize = 50M
 Group.nrofInterfaces = 1
 Group.interface1 = btInterface
 Group.msgTtl = 2880
@@ -23,20 +23,20 @@ Group1.groupID = P
 Group1.nrofHosts = 41
 Group1.nodeLocation = 10, 10
 
-CCRouting.updateInterval = 300
-CCRouting.baseDiscountGamma = 0.6
-CCRouting.learningCoeff = 0.8
-CCRouting.epsilonStart = 1.0
-CCRouting.epsilonEnd = 0.05
-CCRouting.epsilonDecayType = exponential
-CCRouting.simulationTotalTime = 274883
-CCRouting.encounterDecayGamma = 0.9999
-CCRouting.qAgingOmega = 0.9999
+CCRoutingExpert.updateInterval = 300
+CCRoutingExpert.baseDiscountGamma = 0.6
+CCRoutingExpert.learningCoeff = 0.8
+CCRoutingExpert.epsilonStart = 1.0
+CCRoutingExpert.epsilonEnd = 0.05
+CCRoutingExpert.epsilonDecayType = exponential
+CCRoutingExpert.simulationTotalTime = 274883
+CCRoutingExpert.encounterDecayGamma = 0.98
+CCRoutingExpert.qAgingOmega = 0.98
 
-CCRouting.initialEnergy = 700
-CCRouting.scanEnergy = 0.1
-CCRouting.transmitEnergy = 7.0
-CCRouting.receiveEnergy = 1.5
+CCRoutingExpert.initialEnergy = 1000
+CCRoutingExpert.scanEnergy = 0.15
+CCRoutingExpert.transmitEnergy = 3.0
+CCRoutingExpert.receiveEnergy = 0.5
 
 Events.nrof = 2
 
@@ -57,7 +57,7 @@ MovementModel.worldSize = 100, 100
 ## Reports
 Report.nrofReports = 2
 Report.warmup = 1
-Report.reportDir = trial/1/haggle/
+Report.reportDir = baru/haggle/
 Report.report1 = MessageStatsReport
 Report.report2 = NodeDeathReport
 NodeDeathReport.granularity = 60

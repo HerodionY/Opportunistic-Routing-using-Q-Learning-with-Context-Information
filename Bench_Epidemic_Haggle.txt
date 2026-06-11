@@ -27,10 +27,10 @@ Group1.groupID = P
 Group1.nrofHosts = 41
 Group1.nodeLocation = 10, 10
 
-EpidemicEnergyRouter.initialEnergy = 700
-EpidemicEnergyRouter.scanEnergy = 0.1
-EpidemicEnergyRouter.transmitEnergy = 7.0
-EpidemicEnergyRouter.receiveEnergy = 1.5
+EpidemicEnergyRouter.initialEnergy = 1000
+EpidemicEnergyRouter.scanEnergy = 0.15
+EpidemicEnergyRouter.transmitEnergy = 3.0
+EpidemicEnergyRouter.receiveEnergy = 0.5
 
 ## Event generators
 Events.nrof = 2
@@ -52,7 +52,7 @@ MovementModel.worldSize = 100, 100
 ## Reports
 Report.nrofReports = 2
 Report.warmup = 1
-Report.reportDir = trial/1/haggle/
+Report.reportDir = baru/haggle/
 Report.report1 = MessageStatsReport
 Report.report2 = NodeDeathReport
 NodeDeathReport.granularity = 60

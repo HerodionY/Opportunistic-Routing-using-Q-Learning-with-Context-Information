@@ -1,0 +1,20 @@
+Message stats for scenario Prophet_Helsinki_EnergyAware
+sim_time: 43200.1000
+created: 245
+started: 9500
+relayed: 7793
+aborted: 1608
+dropped: 83
+removed: 0
+delivered: 43
+delivery_prob: 0.1755
+response_prob: 0.0000
+overhead_ratio: 180.2326
+latency_avg: 1474.1651
+latency_med: 1103.1000
+hopcount_avg: 3.8372
+hopcount_med: 4
+buffertime_avg: 30873.9422
+buffertime_med: 31752.7000
+rtt_avg: NaN
+rtt_med: NaN

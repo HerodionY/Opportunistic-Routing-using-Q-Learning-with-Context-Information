@@ -161,7 +161,10 @@ public class CCRoutingWithoutEnergyContext extends QLearningRouterWithoutEnergyC
         super.init(host, mListeners);
 
         if (maxEnergy < 0) {
-            double minEnergy = Math.max(0, initialEnergyConfig - 200.0);
+            // Model spread energi KONSISTEN dengan config Haggle: [initialEnergy-200,
+            // initialEnergy].
+            // HARUS IDENTIK dengan CCRoutingExpert untuk fair comparison.
+            double minEnergy = Math.max(0, initialEnergyConfig * 0.5);
             Random nodeRng = new Random(host.getAddress() + 12345L);
             this.maxEnergy = minEnergy + nodeRng.nextDouble() * (initialEnergyConfig - minEnergy);
             this.currentEnergy = this.maxEnergy;

@@ -2,7 +2,7 @@
 Scenario.name = Epidemic_Helsinki_EnergyAware
 Scenario.simulateConnections = true
 Scenario.updateInterval = 0.1
-Scenario.endTime = 86400
+Scenario.endTime = 43200
 
 ## Interface settings
 btInterface.type = SimpleBroadcastInterface
@@ -20,7 +20,7 @@ Group.waitTime = 0, 120
 Group.nrofInterfaces = 1
 Group.interface1 = btInterface
 Group.speed = 0.5, 1.5
-Group.msgTtl = 600
+Group.msgTtl = 300
 
 Group1.groupID = p
 Group1.nrofHosts = 64
@@ -59,15 +59,14 @@ Group6.speed = 7, 10
 Group6.bufferSize = 50M
 Group6.nrofHosts = 2
 
-## [SHARED - identik dengan CCRouting & Prophet]
-EpidemicEnergyRouter.initialEnergy = 2000
-EpidemicEnergyRouter.scanEnergy = 0.06
-EpidemicEnergyRouter.transmitEnergy = 1.8
-EpidemicEnergyRouter.receiveEnergy = 0.4
+EpidemicEnergyRouter.initialEnergy = 3000
+EpidemicEnergyRouter.scanEnergy = 0.05
+EpidemicEnergyRouter.transmitEnergy = 2.0
+EpidemicEnergyRouter.receiveEnergy = 0.25
 
 Events.nrof = 1
 Events1.class = MessageEventGenerator
-Events1.interval = 25, 35
+Events1.interval = 150, 200
 Events1.size = 500k, 1M
 Events1.hosts = 0, 199
 Events1.prefix = M
@@ -84,7 +83,7 @@ MapBasedMovement.mapFile4 = data/shops.wkt
 
 Report.nrofReports = 3
 Report.warmup = 1000
-Report.reportDir = trial/1/helsinki/
+Report.reportDir = baru/helsinki/4/
 Report.report1 = MessageStatsReport
 Report.report2 = ContactTimesReport
 Report.report3 = NodeDeathReport

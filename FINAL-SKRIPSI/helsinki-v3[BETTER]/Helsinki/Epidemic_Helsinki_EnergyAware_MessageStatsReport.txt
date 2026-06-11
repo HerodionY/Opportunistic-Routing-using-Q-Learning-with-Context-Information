@@ -1,0 +1,20 @@
+Message stats for scenario Epidemic_Helsinki_EnergyAware
+sim_time: 43200.1000
+created: 245
+started: 16464
+relayed: 13142
+aborted: 3202
+dropped: 2294
+removed: 0
+delivered: 58
+delivery_prob: 0.2367
+response_prob: 0.0000
+overhead_ratio: 225.5862
+latency_avg: 1124.7552
+latency_med: 816.1000
+hopcount_avg: 5.0690
+hopcount_med: 5
+buffertime_avg: 13695.1177
+buffertime_med: 13036.0000
+rtt_avg: NaN
+rtt_med: NaN

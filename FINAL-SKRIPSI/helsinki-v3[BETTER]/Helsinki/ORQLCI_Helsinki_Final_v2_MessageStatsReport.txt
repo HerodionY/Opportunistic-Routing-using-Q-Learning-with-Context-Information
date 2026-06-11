@@ -1,0 +1,20 @@
+Message stats for scenario ORQLCI_Helsinki_Final_v2
+sim_time: 43200.1000
+created: 245
+started: 18315
+relayed: 14564
+aborted: 3750
+dropped: 7076
+removed: 0
+delivered: 131
+delivery_prob: 0.5347
+response_prob: 0.0000
+overhead_ratio: 110.1756
+latency_avg: 4344.1221
+latency_med: 2072.8000
+hopcount_avg: 2.8626
+hopcount_med: 2
+buffertime_avg: 33101.6347
+buffertime_med: 35221.8000
+rtt_avg: NaN
+rtt_med: NaN

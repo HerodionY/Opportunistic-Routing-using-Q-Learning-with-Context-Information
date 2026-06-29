@@ -4,18 +4,18 @@
 #
 
 ## Scenario settings
-Scenario.name = Prophet_StateAware_Replication
+Scenario.name = Prophet_Replication
 Scenario.simulateConnections = true
 Scenario.updateInterval = 0.1
 # Simulation time: 43200s (12 jam)
-Scenario.endTime = 43200
+Scenario.endTime = 86400
 
 ## Interface-specific settings
 btInterface.type = SimpleBroadcastInterface
 # Node transfer rate: 250kB/s
 btInterface.transmitSpeed = 250k
 # Node communication radius: 10m
-btInterface.transmitRange = 10
+btInterface.transmitRange = 25
 
 # Total Nodes: 200
 Scenario.nrofHostGroups = 6
@@ -24,13 +24,13 @@ Scenario.nrofHostGroups = 6
 Group.movementModel = ShortestPathMapBasedMovement
 Group.router = ProphetRouter
 # Node cache size: 50MB
-Group.bufferSize = 10M
+Group.bufferSize = 50M
 Group.waitTime = 0, 120
 Group.nrofInterfaces = 1
 Group.interface1 = btInterface
 Group.speed = 0.5, 1.5
 # CRITICAL: Message lifetime 300 minutes (5 hours) sesuai gambar parameter paper
-Group.msgTtl = 300
+Group.msgTtl = 600
 
 # --- NODE DISTRIBUTIONS (Total 200) ---
 Group1.groupID = p
@@ -79,7 +79,7 @@ MapBasedMovement.mapFile4 = data/shops.wkt
 Report.nrofReports = 4
 Report.warmup = 1000
 # Directory khusus untuk hasil revisi
-Report.reportDir = testing/Prophet_ShortestMap/1/custom/
+Report.reportDir = revisi/1/helsinki/1/
 Report.report1 = MessageStatsReport
 Report.report2 = ContactTimesReport
 Report.report3 = PerformanceReport

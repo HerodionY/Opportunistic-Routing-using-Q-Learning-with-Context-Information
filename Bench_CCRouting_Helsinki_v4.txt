@@ -1,16 +1,13 @@
-## Scenario settings
 Scenario.name = ORQLCI_Helsinki_Final_v2
 Scenario.simulateConnections = true
 Scenario.updateInterval = 0.1
-Scenario.endTime = 43200
+Scenario.endTime = 86400
 
-## Interface settings
 btInterface.type = SimpleBroadcastInterface
 btInterface.transmitSpeed = 250k
 btInterface.transmitRange = 25
 btInterface.scanInterval = 120
 
-## Group settings
 Scenario.nrofHostGroups = 6
 
 Group.movementModel = ShortestPathMapBasedMovement
@@ -68,13 +65,12 @@ CCRoutingExpert.qAgingOmega = 0.98
 CCRoutingExpert.epsilonStart = 1.0
 CCRoutingExpert.epsilonEnd = 0.05
 CCRoutingExpert.epsilonDecayType = exponential
-CCRoutingExpert.simulationTotalTime = 43200
+CCRoutingExpert.simulationTotalTime = 86400
 
-# ====== RECIPE N (GENTLE) — seed 2 ablation pair untuk withEF v2 ======
-CCRoutingExpert.initialEnergy = 1500
-CCRoutingExpert.scanEnergy = 0.05
+CCRoutingExpert.initialEnergy = 2000
+CCRoutingExpert.scanEnergy = 0.12
 CCRoutingExpert.transmitEnergy = 1.5
-CCRoutingExpert.receiveEnergy = 0.52
+CCRoutingExpert.receiveEnergy = 0.5
 
 Events.nrof = 1
 Events1.class = MessageEventGenerator
@@ -95,7 +91,7 @@ MapBasedMovement.mapFile4 = data/shops.wkt
 
 Report.nrofReports = 3
 Report.warmup = 1000
-Report.reportDir = trial/1/helsinki/v4/withEF/
+Report.reportDir = revisi/1/helsinki/1/
 Report.report1 = MessageStatsReport
 Report.report2 = ContactTimesReport
 Report.report3 = NodeDeathReport

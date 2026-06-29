@@ -29,14 +29,6 @@ public class CCRoutingExpert extends QLearningRouterWithoutEnergyContext {
     private static final double GAMMA_P_DEFAULT = 0.98;
     private static final double OMEGA_Q_DEFAULT = 0.98;
 
-    /**
-     * Hard energy threshold (10% dari kapasitas baterai).
-     * Node yang EF-nya di bawah nilai ini dianggap kritis:
-     * - Sebagai relay : forwarding ditolak oleh pengirim (sender-side gate).
-     * - Sebagai penerima: node menolak pesan masuk (receiver-side gate).
-     * Pengecualian: node tujuan akhir (destination) tetap menerima pesan
-     * meskipun energinya di bawah threshold.
-     */
     private static final double EF_THRESHOLD = 0.1;
 
     private Map<DTNHost, Double> preds;
@@ -171,10 +163,6 @@ public class CCRoutingExpert extends QLearningRouterWithoutEnergyContext {
         super.init(host, mListeners);
 
         if (maxEnergy < 0) {
-            // Model spread energi KONSISTEN dengan config Haggle (dataset utama):
-            // range [initialEnergy - 200, initialEnergy]. Dikembalikan dari *0.5
-            // ke -200 supaya metodologi energi SAMA di semua dataset (Haggle,
-            // Helsinki, dst) -> fair & tidak bisa diserang soal inkonsistensi.
             double minEnergy = Math.max(0, initialEnergyConfig * 0.5);
             Random nodeRng = new Random(host.getAddress() + 12345L);
             this.maxEnergy = minEnergy + nodeRng.nextDouble() * (initialEnergyConfig - minEnergy);
@@ -182,7 +170,6 @@ public class CCRoutingExpert extends QLearningRouterWithoutEnergyContext {
         }
     }
 
-    // MEMINDAHKAN LOGIKA EF DARI CCRouting
     public double getEnergyFactor() {
         if (maxEnergy <= 0) {
             throw new IllegalStateException("maxEnergy must be > 0");
@@ -269,7 +256,7 @@ public class CCRoutingExpert extends QLearningRouterWithoutEnergyContext {
         if (isDead()) {
             return DENIED_UNSPECIFIED;
         }
-        // Receiver-side hard gate: tolak pesan masuk jika energi kritis,
+        // tolak pesan masuk jika energi kritis,
         // KECUALI node ini adalah destination akhir pesan tersebut.
         if (getEnergyRatio() < EF_THRESHOLD && !getHost().equals(m.getTo())) {
             return DENIED_UNSPECIFIED;

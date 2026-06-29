@@ -16,57 +16,57 @@ import numpy as np
 # CONFIG
 # =============================================================================
 
-# REPORT_DIR = "baru/helsinki/4/"
-# SIM_DURATION = 43200
-# TOTAL_NODES = 200
+REPORT_DIR = "baru/helsinki/4/"
+SIM_DURATION = 43200
+TOTAL_NODES = 200
 
-REPORT_DIR = "baru/haggle/"
-SIM_DURATION = 274883
-TOTAL_NODES = 41
+# REPORT_DIR = "baru/haggle/"
+# SIM_DURATION = 274883
+# TOTAL_NODES = 41
 
 # Konfigurasi Zona / Interval
 NUM_ZONES = 4  # Anda bisa ganti jadi 4 atau 5 sesuai kebutuhan
 
-# FILES = {
-#     "ORQLCI": os.path.join(
-#         REPORT_DIR, "ORQLCI_Helsinki_Final_v2_NodeDeathReport.txt"
-#     ),
-#     "ORQLCI_Without_EF": os.path.join(
-#         REPORT_DIR, "ORQLCI_Helsinki_Final_v2_withoutEnergy_NodeDeathReport.txt"
-#     ),
-#     "Epidemic": os.path.join(
-#         REPORT_DIR, "Epidemic_Helsinki_EnergyAware_NodeDeathReport.txt"
-#     ),
-#     "Prophet": os.path.join(
-#         REPORT_DIR, "Prophet_Helsinki_EnergyAware_NodeDeathReport.txt"
-#     ),
-# }
-
 FILES = {
-    "ORQLCI": os.path.join(
-        REPORT_DIR, "ORQLCI_Haggle_Infocom5_Final_NodeDeathReport.txt"
-    ),
+    # "ORQLCI": os.path.join(
+    #     REPORT_DIR, "ORQLCI_Helsinki_Final_v2_NodeDeathReport.txt"
+    # ),
     "ORQLCI_Without_EF": os.path.join(
-        REPORT_DIR, "ORQLCI_Haggle_Infocom5_Final-without_energy_NodeDeathReport.txt"
+        REPORT_DIR, "ORQLCI_Helsinki_Final_v2_withoutEnergy_NodeDeathReport.txt"
     ),
-
     "Epidemic": os.path.join(
-        REPORT_DIR, "Epidemic_Haggle_Infocom5_Baseline_NodeDeathReport.txt"
+        REPORT_DIR, "Epidemic_Helsinki_EnergyAware_NodeDeathReport.txt"
     ),
     "Prophet": os.path.join(
-        REPORT_DIR, "Prophet_Haggle_Infocom5_Baseline_NodeDeathReport.txt"
+        REPORT_DIR, "Prophet_Helsinki_EnergyAware_NodeDeathReport.txt"
     ),
 }
 
+# FILES = {
+#     "ORQLCI": os.path.join(
+#         REPORT_DIR, "ORQLCI_Haggle_Infocom5_Final_NodeDeathReport.txt"
+#     ),
+#     "ORQLCI_Without_EF": os.path.join(
+#         REPORT_DIR, "ORQLCI_Haggle_Infocom5_Final-without_energy_NodeDeathReport.txt"
+#     ),
+
+#     "Epidemic": os.path.join(
+#         REPORT_DIR, "Epidemic_Haggle_Infocom5_Baseline_NodeDeathReport.txt"
+#     ),
+#     "Prophet": os.path.join(
+#         REPORT_DIR, "Prophet_Haggle_Infocom5_Baseline_NodeDeathReport.txt"
+#     ),
+# }
+
 
 COLORS = {
-    "ORQLCI": "#2ecc71",  # Hijau
+    # "ORQLCI": "#2ecc71",  # Hijau
     "ORQLCI_Without_EF": "#f39c12",  # Oranye
     "Epidemic": "#e74c3c",  # Merah
     "Prophet": "#3498db",  # Biru
 }
 
-OUTPUT_FILE_MAIN = os.path.join(REPORT_DIR, "node_death_visulization_main.png")
+OUTPUT_FILE_MAIN = os.path.join(REPORT_DIR, "node_death_visulization_withoutEF.png")
 OUTPUT_FILE_ZONES = os.path.join(REPORT_DIR, f"node_death_visulization_zones_{NUM_ZONES}.png")
 
 # =============================================================================

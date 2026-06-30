@@ -14,7 +14,7 @@ Scenario.nrofHostGroups = 1
 
 Group.movementModel = StationaryMovement
 Group.router = CCRoutingWithoutEnergyContext
-Group.bufferSize = 50M
+Group.bufferSize = 20M
 Group.nrofInterfaces = 1
 Group.interface1 = btInterface
 Group.msgTtl = 2880
@@ -23,7 +23,7 @@ Group1.groupID = P
 Group1.nrofHosts = 41
 Group1.nodeLocation = 10, 10
 
-CCRouting.updateInterval = 300
+CCRouting.updateInterval = 60
 CCRouting.baseDiscountGamma = 0.6
 CCRouting.learningCoeff = 0.8
 CCRouting.epsilonStart = 1.0
@@ -33,7 +33,7 @@ CCRouting.simulationTotalTime = 274883
 CCRouting.encounterDecayGamma = 0.98
 CCRouting.qAgingOmega = 0.98
 
-CCRouting.initialEnergy = 1000
+CCRouting.initialEnergy = 1200
 CCRouting.scanEnergy = 0.15
 CCRouting.transmitEnergy = 3.0
 CCRouting.receiveEnergy = 0.5
@@ -57,7 +57,7 @@ MovementModel.worldSize = 100, 100
 ## Reports
 Report.nrofReports = 2
 Report.warmup = 1
-Report.reportDir = baru/haggle/
+Report.reportDir = revisi/1/haggle/1/withoutEF/
 Report.report1 = MessageStatsReport
 Report.report2 = NodeDeathReport
 NodeDeathReport.granularity = 60

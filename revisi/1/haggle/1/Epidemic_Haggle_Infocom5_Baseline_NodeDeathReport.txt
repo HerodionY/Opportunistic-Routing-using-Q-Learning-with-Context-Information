@@ -1,0 +1,5 @@
+# Node Death Report
+# sim_time	node_addr	router_type	max_energy	energy_ratio	event
+
+# ===== SUMMARY =====
+# total_dead_nodes: 0

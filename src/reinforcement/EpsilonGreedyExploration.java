@@ -9,7 +9,7 @@
 //
 //    This library is free software; you can redistribute it and/or
 //    modify it under the terms of the GNU Lesser General Public
-//    License as published by the Free Software Foundation; either
+//    License as pu blished by the Free Software Foundation; either
 //    version 2.1 of the License, or (at your option) any later version.
 //
 //    This library is distributed in the hope that it will be useful,
@@ -31,21 +31,25 @@ import java.util.Map;
 import java.util.Random;
 
 /**
- * <para>The class implements epsilon greedy exploration policy. Acording to the policy,
+ * <para>The class implements epsilon greedy exploration policy. Acording to the
+ * policy,
  * the best action is chosen with probability <b>1-epsilon</b>. Otherwise,
  * with probability <b>epsilon</b>, any other action, except the best one, is
  * chosen randomly.</para>
  * 
- * <para> According to the policy, the epsilon value is known also as exploration rate. </para>
+ * <para> According to the policy, the epsilon value is known also as
+ * exploration rate. </para>
+ * 
  * @author Diego Catalano
  */
-public class EpsilonGreedyExploration implements IExplorationPolicy{
+public class EpsilonGreedyExploration implements IExplorationPolicy {
     private double epsilon;
-    
+
     private Random r = new Random();
 
     /**
      * Initializes a new instance of the EpsilonGreedyExploration class.
+     * 
      * @param epsilon Epsilon value (exploration rate).
      */
     public EpsilonGreedyExploration(double epsilon) {
@@ -54,6 +58,7 @@ public class EpsilonGreedyExploration implements IExplorationPolicy{
 
     /**
      * Get Episilon value.
+     * 
      * @return Return Epsilon value.
      */
     public double getEpsilon() {
@@ -62,16 +67,18 @@ public class EpsilonGreedyExploration implements IExplorationPolicy{
 
     /**
      * The value determines the amount of exploration driven by the policy.
-     * If the value is high, then the policy drives more to exploration - choosing random
-     * action, which excludes the best one. If the value is low, then the policy is more
+     * If the value is high, then the policy drives more to exploration - choosing
+     * random
+     * action, which excludes the best one. If the value is low, then the policy is
+     * more
      * greedy - choosing the beat so far action.
      * 
      * @param epsilon Epsilon value (exploration rate), [0, 1].
      */
     public void setEpsilon(double epsilon) {
-        this.epsilon = Math.max( 0.0, Math.min( 1.0, epsilon ) );
+        this.epsilon = Math.max(0.0, Math.min(1.0, epsilon));
     }
-    
+
     /**
      * The method chooses an action depending on the provided estimates. The
      * estimates can be any sort of estimate, which values usefulness of the action
@@ -81,17 +88,17 @@ public class EpsilonGreedyExploration implements IExplorationPolicy{
      * @return Return Selected actions.
      */
     @Override
-    public int ChooseAction(double[] actionEstimates, Map<Integer, Tuple<DTNHost, List  <Integer>>> waitForReward, boolean isWaitingReward){
+    public int ChooseAction(double[] actionEstimates, Map<Integer, Tuple<DTNHost, List<Integer>>> waitForReward,
+            boolean isWaitingReward) {
         int actionsCount = actionEstimates.length;
 
         // find the best action (greedy)
         double maxReward = actionEstimates[0];
         int greedyAction = 0;
 
-        for ( int i = 1; i < actionsCount; i++ )
-        {
+        for (int i = 1; i < actionsCount; i++) {
             if (waitForReward != null && waitForReward.get(i) != null) {
-                if(waitForReward.get(i).getValue().contains(isWaitingReward) && (actionEstimates[i] > maxReward)) {
+                if (waitForReward.get(i).getValue().contains(isWaitingReward) && (actionEstimates[i] > maxReward)) {
                     maxReward = actionEstimates[i];
                     greedyAction = i;
                 }
@@ -104,11 +111,10 @@ public class EpsilonGreedyExploration implements IExplorationPolicy{
         }
 
         // try to do exploration
-        if ( r.nextDouble( ) < epsilon )
-        {
-            int randomAction = r.nextInt( actionsCount - 1 );
+        if (r.nextDouble() < epsilon) {
+            int randomAction = r.nextInt(actionsCount - 1);
 
-            if ( randomAction >= greedyAction )
+            if (randomAction >= greedyAction)
                 randomAction++;
 
             return randomAction;
@@ -116,5 +122,5 @@ public class EpsilonGreedyExploration implements IExplorationPolicy{
 
         return greedyAction;
     }
-    
+
 }

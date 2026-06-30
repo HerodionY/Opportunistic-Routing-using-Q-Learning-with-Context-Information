@@ -15,9 +15,9 @@ btInterface.scanInterval = 120
 Scenario.nrofHostGroups = 1
 
 Group.movementModel = StationaryMovement
-Group.router = EpidemicEnergyRouter
+Group.router = EpidemicRouter
 ## [HAGGLE-SPECIFIC] bufferSize=10M, msgTtl=2880 — standar Haggle
-Group.bufferSize = 10M
+Group.bufferSize = 20M
 Group.nrofInterfaces = 1
 Group.interface1 = btInterface
 Group.msgTtl = 2880
@@ -27,10 +27,6 @@ Group1.groupID = P
 Group1.nrofHosts = 41
 Group1.nodeLocation = 10, 10
 
-EpidemicEnergyRouter.initialEnergy = 1000
-EpidemicEnergyRouter.scanEnergy = 0.15
-EpidemicEnergyRouter.transmitEnergy = 3.0
-EpidemicEnergyRouter.receiveEnergy = 0.5
 
 ## Event generators
 Events.nrof = 2
@@ -52,7 +48,7 @@ MovementModel.worldSize = 100, 100
 ## Reports
 Report.nrofReports = 2
 Report.warmup = 1
-Report.reportDir = baru/haggle/
+Report.reportDir = revisi/1/haggle/1/
 Report.report1 = MessageStatsReport
 Report.report2 = NodeDeathReport
 NodeDeathReport.granularity = 60

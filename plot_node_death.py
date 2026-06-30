@@ -16,11 +16,11 @@ import numpy as np
 # CONFIG
 # =============================================================================
 
-REPORT_DIR = "baru/helsinki/4/"
-SIM_DURATION = 43200
+REPORT_DIR = "revisi/1/helsinki/1"
+SIM_DURATION = 86400
 TOTAL_NODES = 200
 
-# REPORT_DIR = "baru/haggle/"
+# REPORT_DIR = "revisi/1/haggle/1/"
 # SIM_DURATION = 274883
 # TOTAL_NODES = 41
 
@@ -28,18 +28,18 @@ TOTAL_NODES = 200
 NUM_ZONES = 4  # Anda bisa ganti jadi 4 atau 5 sesuai kebutuhan
 
 FILES = {
-    # "ORQLCI": os.path.join(
-    #     REPORT_DIR, "ORQLCI_Helsinki_Final_v2_NodeDeathReport.txt"
-    # ),
+    "ORQLCI": os.path.join(
+        REPORT_DIR, "ORQLCI_Helsinki_Final_v2_NodeDeathReport.txt"
+    ),
     "ORQLCI_Without_EF": os.path.join(
         REPORT_DIR, "ORQLCI_Helsinki_Final_v2_withoutEnergy_NodeDeathReport.txt"
     ),
-    "Epidemic": os.path.join(
-        REPORT_DIR, "Epidemic_Helsinki_EnergyAware_NodeDeathReport.txt"
-    ),
-    "Prophet": os.path.join(
-        REPORT_DIR, "Prophet_Helsinki_EnergyAware_NodeDeathReport.txt"
-    ),
+    # "Epidemic": os.path.join(
+    #     REPORT_DIR, "Epidemic_Helsinki_EnergyAware_NodeDeathReport.txt"
+    # ),
+    # "Prophet": os.path.join(
+    #     REPORT_DIR, "Prophet_Helsinki_EnergyAware_NodeDeathReport.txt"
+    # ),
 }
 
 # FILES = {
@@ -50,20 +50,20 @@ FILES = {
 #         REPORT_DIR, "ORQLCI_Haggle_Infocom5_Final-without_energy_NodeDeathReport.txt"
 #     ),
 
-#     "Epidemic": os.path.join(
-#         REPORT_DIR, "Epidemic_Haggle_Infocom5_Baseline_NodeDeathReport.txt"
-#     ),
-#     "Prophet": os.path.join(
-#         REPORT_DIR, "Prophet_Haggle_Infocom5_Baseline_NodeDeathReport.txt"
-#     ),
+#     # "Epidemic": os.path.join(
+#     #     REPORT_DIR, "Epidemic_Haggle_Infocom5_Baseline_NodeDeathReport.txt"
+#     # ),
+#     # "Prophet": os.path.join(
+#     #     REPORT_DIR, "Prophet_Haggle_Infocom5_Baseline_NodeDeathReport.txt"
+#     # ),
 # }
 
 
 COLORS = {
-    # "ORQLCI": "#2ecc71",  # Hijau
+    "ORQLCI": "#2ecc71",  # Hijau
     "ORQLCI_Without_EF": "#f39c12",  # Oranye
-    "Epidemic": "#e74c3c",  # Merah
-    "Prophet": "#3498db",  # Biru
+    # "Epidemic": "#e74c3c",  # Merah
+    # "Prophet": "#3498db",  # Biru
 }
 
 OUTPUT_FILE_MAIN = os.path.join(REPORT_DIR, "node_death_visulization_withoutEF.png")

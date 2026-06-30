@@ -71,7 +71,7 @@ CCRouting.epsilonDecayType = exponential
 CCRouting.simulationTotalTime = 86400
 
 # ====== RECIPE N (GENTLE) — seed 2 ablation pair untuk withEF v2 ======
-CCRouting.initialEnergy = 2000
+CCRouting.initialEnergy = 2200
 CCRouting.scanEnergy = 0.12
 CCRouting.transmitEnergy = 1.5
 CCRouting.receiveEnergy = 0.5

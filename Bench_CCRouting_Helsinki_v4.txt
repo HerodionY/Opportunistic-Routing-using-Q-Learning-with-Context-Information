@@ -67,7 +67,7 @@ CCRoutingExpert.epsilonEnd = 0.05
 CCRoutingExpert.epsilonDecayType = exponential
 CCRoutingExpert.simulationTotalTime = 86400
 
-CCRoutingExpert.initialEnergy = 2000
+CCRoutingExpert.initialEnergy = 2200
 CCRoutingExpert.scanEnergy = 0.12
 CCRoutingExpert.transmitEnergy = 1.5
 CCRoutingExpert.receiveEnergy = 0.5

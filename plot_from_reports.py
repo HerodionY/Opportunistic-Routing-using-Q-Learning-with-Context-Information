@@ -102,7 +102,8 @@ def plot_comparison(protocols, delivery_data, overhead_data, latency_data):
 
     plt.tight_layout(rect=[0, 0.03, 1, 0.95])
 
-    output_filename = "baru/haggle/Stat_Chart_haggle.png"
+    # output_filename = "revisi/1/haggle/1/Stat_Chart_haggle.png"
+    output_filename = "revisi/1/helsinki/1/Stat_Chart_helsinki.png"
     output_directory = os.path.dirname(output_filename)
     if not os.path.exists(output_directory):
         os.makedirs(output_directory)
@@ -116,11 +117,18 @@ def plot_comparison(protocols, delivery_data, overhead_data, latency_data):
 if __name__ == "__main__":
     print("=== Skrip Plotting Otomatis dari MessageStatsReport ===")
 
+    # report_files = {
+    #     "ORQLCI": "revisi/1/haggle/1/ORQLCI_Haggle_Infocom5_Final_MessageStatsReport.txt",
+    #     "ORQLCI_Without_EF": "revisi/1/haggle/1/ORQLCI_Haggle_Infocom5_Final-without_energy_MessageStatsReport.txt",
+    #     "Epidemic": "revisi/1/haggle/1/Epidemic_Haggle_Infocom5_Baseline_MessageStatsReport.txt",
+    #     "Prophet": "revisi/1/haggle/1/Prophet_Haggle_Infocom5_Baseline_MessageStatsReport.txt",
+    # }
+
     report_files = {
-        "ORQLCI": "baru/haggle/ORQLCI_Haggle_Infocom5_Final_MessageStatsReport.txt",
-        "ORQLCI_Without_EF": "baru/haggle/ORQLCI_Haggle_Infocom5_Final-without_energy_MessageStatsReport.txt",
-        "Epidemic": "baru/haggle/Epidemic_Haggle_Infocom5_Baseline_MessageStatsReport.txt",
-        "Prophet": "baru/haggle/Prophet_Haggle_Infocom5_Baseline_MessageStatsReport.txt",
+        "ORQLCI": "revisi/1/helsinki/1/ORQLCI_Helsinki_Final_v2_MessageStatsReport.txt",
+        "ORQLCI_Without_EF": "revisi/1/helsinki/1/ORQLCI_Helsinki_Final_v2_withoutEnergy_MessageStatsReport.txt",
+        "Epidemic": "revisi/1/helsinki/1/Epidemic_Replication_MessageStatsReport.txt",
+        "Prophet": "revisi/1/helsinki/1/Prophet_Replication_MessageStatsReport.txt",
     }
 
     protocols = list(report_files.keys())
